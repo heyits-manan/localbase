@@ -43,7 +43,25 @@ Health check:
 curl http://localhost:4000/health
 ```
 
-Create a table:
+Create a resource:
+
+```bash
+curl -X POST http://localhost:4000/resources \
+  -H "Content-Type: application/json" \
+  -d '{"name":"companies","fields":[{"name":"name","type":"text","required":true},{"name":"website","type":"text"},{"name":"active","type":"boolean","defaultValue":true,"indexed":true}]}'
+```
+
+Insert and list resource rows:
+
+```bash
+curl -X POST http://localhost:4000/resources/companies/rows \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Acme","website":"https://acme.com"}'
+
+curl http://localhost:4000/resources/companies/rows
+```
+
+The older table-oriented API remains available:
 
 ```bash
 curl -X POST http://localhost:4000/schema/tables \
@@ -63,7 +81,7 @@ curl http://localhost:4000/api/companies
 
 ## MCP Use
 
-Start the MCP server with `pnpm dev:mcp`. Local coding agents can call `list_tables`, `describe_table`, and `create_table` over stdio. The MCP server calls the API using `API_BASE_URL`, defaulting to `http://localhost:4000`.
+Start the MCP server with `pnpm dev:mcp`. Local coding agents can call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `list_rows`, and `insert_row` over stdio. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`. The MCP server calls the API using `API_BASE_URL`, defaulting to `http://localhost:4000`.
 
 ## SDK Example
 
@@ -71,6 +89,18 @@ Start the MCP server with `pnpm dev:mcp`. Local coding agents can call `list_tab
 import { createBackforgeClient } from "@backforge/sdk";
 
 const forge = createBackforgeClient({ baseUrl: "http://localhost:4000" });
+
+await forge.resources.create({
+  name: "companies",
+  fields: [
+    { name: "name", type: "text", required: true },
+    { name: "website", type: "text" }
+  ]
+});
+await forge.resources.list();
+await forge.resources.describe("companies");
+await forge.resources.rows("companies").insert({ name: "Acme" });
+await forge.resources.rows("companies").list();
 
 await forge.from("companies").select();
 await forge.from("companies").get("row-id");

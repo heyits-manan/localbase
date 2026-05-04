@@ -1,3 +1,5 @@
+import type { CreateResourceInput, ForgeResource } from "@backforge/shared";
+
 export type BackforgeClientOptions = {
   baseUrl: string;
 };
@@ -32,6 +34,26 @@ export function createBackforgeClient(options: BackforgeClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, "");
 
   return {
+    resources: {
+      list: () => request<ForgeResource[]>(baseUrl, "/resources"),
+      describe: (name: string) => request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}`),
+      create: (data: CreateResourceInput) =>
+        request<ForgeResource>(baseUrl, "/resources", {
+          method: "POST",
+          body: JSON.stringify(data)
+        }),
+      rows(name: string) {
+        const path = `/resources/${encodeURIComponent(name)}/rows`;
+        return {
+          list: () => request<unknown[]>(baseUrl, path),
+          insert: (data: JsonRecord) =>
+            request<unknown>(baseUrl, path, {
+              method: "POST",
+              body: JSON.stringify(data)
+            })
+        };
+      }
+    },
     from(table: string) {
       const path = `/api/${encodeURIComponent(table)}`;
 

@@ -1,4 +1,4 @@
-import type { ColumnType, CreateTableInput, ForgeColumn, ForgeTable } from "@backforge/shared";
+import type { ColumnType, CreateResourceInput, CreateTableInput, ForgeColumn, ForgeResource, ForgeTable } from "@backforge/shared";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "../db/client.js";
@@ -26,7 +26,25 @@ export const createTableInputSchema = z.object({
         name: z.string().min(1),
         type: z.enum(columnTypes),
         nullable: z.boolean().optional(),
-        unique: z.boolean().optional()
+        unique: z.boolean().optional(),
+        defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+        indexed: z.boolean().optional()
+      })
+    )
+    .default([])
+});
+
+export const createResourceInputSchema = z.object({
+  name: z.string().min(1),
+  fields: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        type: z.enum(columnTypes),
+        required: z.boolean().optional(),
+        unique: z.boolean().optional(),
+        defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+        indexed: z.boolean().optional()
       })
     )
     .default([])
@@ -49,6 +67,8 @@ function toForgeColumn(row: typeof forgeColumns.$inferSelect): ForgeColumn {
     columnType: row.columnType as ColumnType,
     nullable: row.nullable,
     isUnique: row.isUnique,
+    defaultValue: row.defaultValue,
+    isIndexed: row.isIndexed,
     createdAt: row.createdAt.toISOString()
   };
 }
@@ -60,6 +80,17 @@ function toForgeTable(row: typeof forgeTables.$inferSelect, columns?: ForgeColum
     tableName: row.tableName,
     createdAt: row.createdAt.toISOString(),
     columns
+  };
+}
+
+function toForgeResource(table: ForgeTable): ForgeResource {
+  return {
+    id: table.id,
+    projectId: table.projectId,
+    name: table.tableName,
+    tableName: table.tableName,
+    createdAt: table.createdAt,
+    fields: table.columns
   };
 }
 
@@ -86,9 +117,61 @@ function validateColumns(input: CreateTableInput): void {
   }
 }
 
+function toSqlLiteral(type: ColumnType, value: string | number | boolean | null): string {
+  if (value === null) {
+    return "NULL";
+  }
+
+  if (type === "integer") {
+    if (typeof value !== "number" || !Number.isInteger(value)) {
+      throw new ServiceError("Integer default values must be whole numbers");
+    }
+    return String(value);
+  }
+
+  if (type === "boolean") {
+    if (typeof value !== "boolean") {
+      throw new ServiceError("Boolean default values must be true or false");
+    }
+    return value ? "true" : "false";
+  }
+
+  if ((type === "timestamp" || type === "uuid") && typeof value !== "string") {
+    throw new ServiceError(`${type} default values must be strings`);
+  }
+
+  if (type === "jsonb") {
+    const escaped = JSON.stringify(value).replace(/'/g, "''");
+    return `'${escaped}'::jsonb`;
+  }
+
+  const escaped = String(value).replace(/'/g, "''");
+  return `'${escaped}'`;
+}
+
+function toResourceInput(input: CreateResourceInput): CreateTableInput {
+  const parsed = createResourceInputSchema.parse(input);
+  return {
+    tableName: parsed.name,
+    columns: parsed.fields.map((field) => ({
+      name: field.name,
+      type: field.type,
+      nullable: field.required === true ? false : true,
+      unique: field.unique,
+      defaultValue: field.defaultValue,
+      indexed: field.indexed
+    }))
+  };
+}
+
 export async function listTables(): Promise<ForgeTable[]> {
   const rows = await db.select().from(forgeTables);
   return rows.map((row) => toForgeTable(row));
+}
+
+export async function listResources(): Promise<ForgeResource[]> {
+  const tables = await listTables();
+  return tables.map((table) => toForgeResource(table));
 }
 
 export async function describeTable(tableName: string): Promise<ForgeTable> {
@@ -104,6 +187,10 @@ export async function describeTable(tableName: string): Promise<ForgeTable> {
     .where(eq(forgeColumns.tableId, table[0].id));
 
   return toForgeTable(table[0], columns.map((column) => toForgeColumn(column)));
+}
+
+export async function describeResource(name: string): Promise<ForgeResource> {
+  return toForgeResource(await describeTable(name));
 }
 
 export async function createTable(input: CreateTableInput): Promise<ForgeTable> {
@@ -130,6 +217,12 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
       if (column.unique === true) {
         parts.push("UNIQUE");
       }
+      if (column.defaultValue !== undefined) {
+        if (column.nullable === false && column.defaultValue === null) {
+          throw new ServiceError(`Required column cannot default to null: ${column.name}`);
+        }
+        parts.push("DEFAULT", toSqlLiteral(column.type, column.defaultValue));
+      }
       return parts.join(" ");
     });
 
@@ -146,6 +239,15 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
 
     await client.query(createSql);
 
+    for (const column of parsed.columns) {
+      if (column.indexed === true && column.unique !== true) {
+        const indexName = `${tableName}_${column.name}_idx`;
+        await client.query(
+          `CREATE INDEX ${quoteIdentifier(indexName)} ON ${quoteIdentifier(tableName)} (${quoteIdentifier(column.name)})`
+        );
+      }
+    }
+
     const tableResult = await client.query<{ id: string; project_id: string; table_name: string; created_at: Date }>(
       "INSERT INTO forge_tables (project_id, table_name) VALUES ($1, $2) RETURNING id, project_id, table_name, created_at",
       [project.id, tableName]
@@ -158,8 +260,16 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
 
     for (const column of parsed.columns) {
       await client.query(
-        "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique) VALUES ($1, $2, $3, $4, $5)",
-        [tableRow.id, column.name, column.type, column.nullable ?? true, column.unique ?? false]
+        "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        [
+          tableRow.id,
+          column.name,
+          column.type,
+          column.nullable ?? true,
+          column.unique ?? false,
+          column.defaultValue === undefined ? null : String(column.defaultValue),
+          column.indexed ?? false
+        ]
       );
     }
 
@@ -174,6 +284,10 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
   } finally {
     client.release();
   }
+}
+
+export async function createResource(input: CreateResourceInput): Promise<ForgeResource> {
+  return toForgeResource(await createTable(toResourceInput(input)));
 }
 
 export async function getRegisteredColumns(tableName: string): Promise<ForgeColumn[]> {

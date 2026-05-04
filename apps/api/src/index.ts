@@ -4,6 +4,7 @@ import morgan from "morgan";
 import { env } from "./env.js";
 import { crudRouter } from "./routes/crud.js";
 import { healthRouter } from "./routes/health.js";
+import { resourcesRouter } from "./routes/resources.js";
 import { schemaRouter } from "./routes/schema.js";
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(morgan("dev"));
 
 app.use(healthRouter);
 app.use(schemaRouter);
+app.use(resourcesRouter);
 app.use(crudRouter);
 
 const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {

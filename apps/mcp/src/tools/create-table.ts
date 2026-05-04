@@ -11,7 +11,9 @@ export const createTableToolInputSchema = z.object({
       name: z.string().min(1),
       type: columnTypeSchema,
       nullable: z.boolean().optional(),
-      unique: z.boolean().optional()
+      unique: z.boolean().optional(),
+      defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+      indexed: z.boolean().optional()
     })
   )
 });
@@ -28,7 +30,9 @@ export function registerCreateTableTool(server: McpServer, apiBaseUrl: string): 
             name: z.string().min(1),
             type: columnTypeSchema,
             nullable: z.boolean().optional(),
-            unique: z.boolean().optional()
+            unique: z.boolean().optional(),
+            defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+            indexed: z.boolean().optional()
           })
         )
       }

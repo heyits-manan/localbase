@@ -7,6 +7,20 @@ export type CreateTableInput = {
     type: ColumnType;
     nullable?: boolean;
     unique?: boolean;
+    defaultValue?: string | number | boolean | null;
+    indexed?: boolean;
+  }>;
+};
+
+export type CreateResourceInput = {
+  name: string;
+  fields: Array<{
+    name: string;
+    type: ColumnType;
+    required?: boolean;
+    unique?: boolean;
+    defaultValue?: string | number | boolean | null;
+    indexed?: boolean;
   }>;
 };
 
@@ -17,6 +31,8 @@ export type ForgeColumn = {
   columnType: ColumnType;
   nullable: boolean;
   isUnique: boolean;
+  defaultValue: string | null;
+  isIndexed: boolean;
   createdAt: string;
 };
 
@@ -26,4 +42,13 @@ export type ForgeTable = {
   tableName: string;
   createdAt: string;
   columns?: ForgeColumn[];
+};
+
+export type ForgeResource = {
+  id: string;
+  projectId: string;
+  name: string;
+  tableName: string;
+  createdAt: string;
+  fields?: ForgeColumn[];
 };

@@ -1,1 +1,8 @@
-export type { ColumnType, CreateTableInput, ForgeColumn, ForgeTable } from "./types.js";
+export type {
+  ColumnType,
+  CreateResourceInput,
+  CreateTableInput,
+  ForgeColumn,
+  ForgeResource,
+  ForgeTable
+} from "./types.js";

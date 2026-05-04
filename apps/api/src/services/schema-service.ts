@@ -1,4 +1,4 @@
-import type { ColumnType, CreateTableInput, CreateResourceInput, ForgeColumn, ForgeResource, ForgeTable } from "@backforge/shared";
+import type { ColumnType, CreateResourceInput, CreateTableInput, ForgeColumn, ForgeResource, ForgeTable } from "@backforge/shared";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "../db/client.js";
@@ -157,7 +157,7 @@ function toResourceInput(input: CreateResourceInput): CreateTableInput {
   const parsed = createResourceInputSchema.parse(input);
   return {
     tableName: parsed.name,
-    ownedByUser: parsed.ownedByUser,
+    ...(parsed.ownedByUser === undefined ? {} : { ownedByUser: parsed.ownedByUser }),
     columns: [
       ...(parsed.ownedByUser === true
         ? [
@@ -173,9 +173,9 @@ function toResourceInput(input: CreateResourceInput): CreateTableInput {
         name: field.name,
         type: field.type,
         nullable: field.required === true ? false : true,
-        unique: field.unique,
-        defaultValue: field.defaultValue,
-        indexed: field.indexed
+        ...(field.unique === undefined ? {} : { unique: field.unique }),
+        ...(field.defaultValue === undefined ? {} : { defaultValue: field.defaultValue }),
+        ...(field.indexed === undefined ? {} : { indexed: field.indexed })
       }))
     ]
   };
@@ -214,7 +214,8 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
   const parsed = createTableInputSchema.parse(input);
   const tableName = validateTableName(parsed.tableName);
   const normalizedInput: CreateTableInput = {
-    ...parsed,
+    tableName: parsed.tableName,
+    ...(parsed.ownedByUser === undefined ? {} : { ownedByUser: parsed.ownedByUser }),
     columns:
       parsed.ownedByUser === true && !parsed.columns.some((column) => column.name === "user_id")
         ? [

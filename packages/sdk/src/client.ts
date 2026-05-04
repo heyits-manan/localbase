@@ -1,4 +1,4 @@
-import type { AuthSession, AuthUser, CreateResourceInput, ForgeResource } from "@backforge/shared";
+import type { AddResourceFieldInput, AuthSession, AuthUser, CreateResourceInput, ForgeResource } from "@backforge/shared";
 
 export type BackforgeClientOptions = {
   baseUrl: string;
@@ -72,6 +72,11 @@ export function createBackforgeClient(options: BackforgeClientOptions) {
       describe: (name: string) => request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}`, authToken),
       create: (data: CreateResourceInput) =>
         request<ForgeResource>(baseUrl, "/resources", authToken, {
+          method: "POST",
+          body: JSON.stringify(data)
+        }),
+      addField: (name: string, data: AddResourceFieldInput) =>
+        request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}/fields`, authToken, {
           method: "POST",
           body: JSON.stringify(data)
         }),

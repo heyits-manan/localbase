@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  addResourceField,
+  addResourceFieldInputSchema,
   createResource,
   createResourceInputSchema,
   describeResource,
@@ -45,14 +47,6 @@ resourcesRouter.get("/resources", async (_req, res, next) => {
   }
 });
 
-resourcesRouter.get("/resources/:name", async (req, res, next) => {
-  try {
-    res.json(await describeResource(req.params.name));
-  } catch (error) {
-    next(error);
-  }
-});
-
 resourcesRouter.post("/resources", async (req, res, next) => {
   try {
     const input = createResourceInputSchema.parse(req.body);
@@ -62,6 +56,27 @@ resourcesRouter.post("/resources", async (req, res, next) => {
       next(new Error(error.issues.map((issue) => issue.message).join("; ")));
       return;
     }
+    next(error);
+  }
+});
+
+resourcesRouter.post("/resources/:name/fields", async (req, res, next) => {
+  try {
+    const input = addResourceFieldInputSchema.parse(req.body);
+    res.json(await addResourceField(req.params.name, input));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      next(new Error(error.issues.map((issue) => issue.message).join("; ")));
+      return;
+    }
+    next(error);
+  }
+});
+
+resourcesRouter.get("/resources/:name", async (req, res, next) => {
+  try {
+    res.json(await describeResource(req.params.name));
+  } catch (error) {
     next(error);
   }
 });

@@ -26,6 +26,15 @@ export type CreateResourceInput = {
   }>;
 };
 
+export type AddResourceFieldInput = {
+  name: string;
+  type: ColumnType;
+  required?: boolean;
+  unique?: boolean;
+  defaultValue?: string | number | boolean | null;
+  indexed?: boolean;
+};
+
 export type ForgeColumn = {
   id: string;
   tableId: string;

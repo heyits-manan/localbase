@@ -1,4 +1,4 @@
-import type { CreateResourceInput } from "@backforge/shared";
+import type { AddResourceFieldInput, CreateResourceInput } from "@backforge/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -73,6 +73,27 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       request(apiBaseUrl, "/resources", undefined, {
         method: "POST",
         body: JSON.stringify(input)
+      })
+  );
+
+  server.registerTool(
+    "add_field",
+    {
+      description: "Add a field to an existing Backforge resource.",
+      inputSchema: {
+        resource: z.string().min(1),
+        name: z.string().min(1),
+        type: columnTypeSchema,
+        required: z.boolean().optional(),
+        unique: z.boolean().optional(),
+        defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+        indexed: z.boolean().optional()
+      }
+    },
+    async ({ resource, ...field }: AddResourceFieldInput & { resource: string }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields`, undefined, {
+        method: "POST",
+        body: JSON.stringify(field)
       })
   );
 

@@ -1,4 +1,12 @@
-import type { ColumnType, CreateResourceInput, CreateTableInput, ForgeColumn, ForgeResource, ForgeTable } from "@backforge/shared";
+import type {
+  AddResourceFieldInput,
+  ColumnType,
+  CreateResourceInput,
+  CreateTableInput,
+  ForgeColumn,
+  ForgeResource,
+  ForgeTable
+} from "@backforge/shared";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "../db/client.js";
@@ -8,6 +16,7 @@ import { assertSafeColumnName, assertSafeTableName, quoteIdentifier } from "../u
 const columnTypes = ["text", "integer", "boolean", "timestamp", "uuid", "jsonb"] as const;
 const reservedPrefixes = ["forge_", "auth_", "storage_"];
 const systemColumns = new Set(["id", "created_at", "updated_at"]);
+const reservedResourceFieldNames = new Set(["id", "user_id", "created_at", "updated_at"]);
 
 const columnTypeSql: Record<ColumnType, string> = {
   text: "TEXT",
@@ -50,6 +59,15 @@ export const createResourceInputSchema = z.object({
       })
     )
     .default([])
+});
+
+export const addResourceFieldInputSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(columnTypes),
+  required: z.boolean().optional(),
+  unique: z.boolean().optional(),
+  defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+  indexed: z.boolean().optional()
 });
 
 class ServiceError extends Error {
@@ -121,6 +139,15 @@ function validateColumns(input: CreateTableInput): void {
   }
 }
 
+function validateResourceFieldName(fieldName: string): string {
+  const safeName = assertSafeColumnName(fieldName);
+  if (reservedResourceFieldNames.has(safeName)) {
+    throw new ServiceError(`Field name is reserved: ${safeName}`);
+  }
+
+  return safeName;
+}
+
 function toSqlLiteral(type: ColumnType, value: string | number | boolean | null): string {
   if (value === null) {
     return "NULL";
@@ -151,6 +178,37 @@ function toSqlLiteral(type: ColumnType, value: string | number | boolean | null)
 
   const escaped = String(value).replace(/'/g, "''");
   return `'${escaped}'`;
+}
+
+function toColumnSql(column: CreateTableInput["columns"][number]): string {
+  const parts = [quoteIdentifier(column.name), columnTypeSql[column.type]];
+  if (column.nullable === false) {
+    parts.push("NOT NULL");
+  }
+  if (column.name === "user_id") {
+    parts.push("REFERENCES auth_users(id)");
+  }
+  if (column.unique === true) {
+    parts.push("UNIQUE");
+  }
+  if (column.defaultValue !== undefined) {
+    if (column.nullable === false && column.defaultValue === null) {
+      throw new ServiceError(`Required column cannot default to null: ${column.name}`);
+    }
+    parts.push("DEFAULT", toSqlLiteral(column.type, column.defaultValue));
+  }
+  return parts.join(" ");
+}
+
+async function createColumnIndex(
+  client: Pick<typeof pool, "query">,
+  tableName: string,
+  columnName: string
+): Promise<void> {
+  const indexName = `${tableName}_${columnName}_idx`;
+  await client.query(
+    `CREATE INDEX ${quoteIdentifier(indexName)} ON ${quoteIdentifier(tableName)} (${quoteIdentifier(columnName)})`
+  );
 }
 
 function toResourceInput(input: CreateResourceInput): CreateTableInput {
@@ -242,25 +300,7 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
   try {
     await client.query("BEGIN");
 
-    const columnSql = normalizedInput.columns.map((column) => {
-      const parts = [quoteIdentifier(column.name), columnTypeSql[column.type]];
-      if (column.nullable === false) {
-        parts.push("NOT NULL");
-      }
-      if (column.name === "user_id") {
-        parts.push("REFERENCES auth_users(id)");
-      }
-      if (column.unique === true) {
-        parts.push("UNIQUE");
-      }
-      if (column.defaultValue !== undefined) {
-        if (column.nullable === false && column.defaultValue === null) {
-          throw new ServiceError(`Required column cannot default to null: ${column.name}`);
-        }
-        parts.push("DEFAULT", toSqlLiteral(column.type, column.defaultValue));
-      }
-      return parts.join(" ");
-    });
+    const columnSql = normalizedInput.columns.map((column) => toColumnSql(column));
 
     const createSql = [
       `CREATE TABLE ${quoteIdentifier(tableName)} (`,
@@ -277,10 +317,7 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
 
     for (const column of normalizedInput.columns) {
       if (column.indexed === true && column.unique !== true) {
-        const indexName = `${tableName}_${column.name}_idx`;
-        await client.query(
-          `CREATE INDEX ${quoteIdentifier(indexName)} ON ${quoteIdentifier(tableName)} (${quoteIdentifier(column.name)})`
-        );
+        await createColumnIndex(client, tableName, column.name);
       }
     }
 
@@ -330,6 +367,67 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
 
 export async function createResource(input: CreateResourceInput): Promise<ForgeResource> {
   return toForgeResource(await createTable(toResourceInput(input)));
+}
+
+export async function addResourceField(resourceName: string, input: AddResourceFieldInput): Promise<ForgeResource> {
+  const tableName = assertSafeTableName(resourceName);
+  const parsed = addResourceFieldInputSchema.parse(input);
+  const fieldName = validateResourceFieldName(parsed.name);
+  const resource = await describeResource(tableName);
+  const existingFields = resource.fields ?? [];
+  if (existingFields.some((field) => field.columnName === fieldName)) {
+    throw new ServiceError(`Field already exists: ${fieldName}`, 409);
+  }
+
+  const column = {
+    name: fieldName,
+    type: parsed.type,
+    nullable: parsed.required === true ? false : true,
+    ...(parsed.unique === undefined ? {} : { unique: parsed.unique }),
+    ...(parsed.defaultValue === undefined ? {} : { defaultValue: parsed.defaultValue }),
+    ...(parsed.indexed === undefined ? {} : { indexed: parsed.indexed })
+  } satisfies CreateTableInput["columns"][number];
+
+  if (column.nullable === false && column.defaultValue === undefined) {
+    throw new ServiceError(`Required field must include a non-null default value: ${fieldName}`);
+  }
+  if (column.nullable === false && column.defaultValue === null) {
+    throw new ServiceError(`Required field cannot default to null: ${fieldName}`);
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`ALTER TABLE ${quoteIdentifier(tableName)} ADD COLUMN ${toColumnSql(column)}`);
+
+    if (column.indexed === true && column.unique !== true) {
+      await createColumnIndex(client, tableName, column.name);
+    }
+
+    await client.query(
+      "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [
+        resource.id,
+        column.name,
+        column.type,
+        column.nullable,
+        column.unique ?? false,
+        column.defaultValue === undefined ? null : String(column.defaultValue),
+        column.indexed ?? false
+      ]
+    );
+
+    await client.query("COMMIT");
+    return describeResource(tableName);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error instanceof Error && "code" in error && error.code === "42701") {
+      throw new ServiceError(`Field already exists: ${fieldName}`, 409);
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function getRegisteredColumns(tableName: string): Promise<ForgeColumn[]> {

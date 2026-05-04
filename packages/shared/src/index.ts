@@ -1,4 +1,5 @@
 export type {
+  AddResourceFieldInput,
   ColumnType,
   AuthSession,
   AuthUser,

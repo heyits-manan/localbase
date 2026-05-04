@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const forgeProjects = pgTable("forge_projects", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -12,6 +12,7 @@ export const forgeTables = pgTable("forge_tables", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").references(() => forgeProjects.id),
   tableName: text("table_name").notNull(),
+  ownedByUser: boolean("owned_by_user").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 });
 
@@ -26,6 +27,35 @@ export const forgeColumns = pgTable("forge_columns", {
   isIndexed: boolean("is_indexed").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 });
+
+export const authUsers = pgTable(
+  "auth_users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => ({
+    emailUnique: uniqueIndex("auth_users_email_unique").on(table.email)
+  })
+);
+
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => authUsers.id)
+      .notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => ({
+    tokenHashUnique: uniqueIndex("auth_sessions_token_hash_unique").on(table.tokenHash)
+  })
+);
 
 export type ForgeProjectRow = typeof forgeProjects.$inferSelect;
 

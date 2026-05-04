@@ -2,6 +2,7 @@ export type ColumnType = "text" | "integer" | "boolean" | "timestamp" | "uuid" |
 
 export type CreateTableInput = {
   tableName: string;
+  ownedByUser?: boolean;
   columns: Array<{
     name: string;
     type: ColumnType;
@@ -14,6 +15,7 @@ export type CreateTableInput = {
 
 export type CreateResourceInput = {
   name: string;
+  ownedByUser?: boolean;
   fields: Array<{
     name: string;
     type: ColumnType;
@@ -40,6 +42,7 @@ export type ForgeTable = {
   id: string;
   projectId: string;
   tableName: string;
+  ownedByUser: boolean;
   createdAt: string;
   columns?: ForgeColumn[];
 };
@@ -49,6 +52,18 @@ export type ForgeResource = {
   projectId: string;
   name: string;
   tableName: string;
+  ownedByUser: boolean;
   createdAt: string;
   fields?: ForgeColumn[];
+};
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  createdAt: string;
+};
+
+export type AuthSession = {
+  token: string;
+  user: AuthUser;
 };

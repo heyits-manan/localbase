@@ -13,11 +13,12 @@ const resourceFieldSchema = z.object({
   indexed: z.boolean().optional()
 });
 
-async function request(apiBaseUrl: string, path: string, init?: RequestInit) {
+async function request(apiBaseUrl: string, path: string, authToken?: string, init?: RequestInit) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...init?.headers
     }
   });
@@ -64,11 +65,12 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       description: "Create a Backforge resource with fields, defaults, uniqueness, and basic indexes.",
       inputSchema: {
         name: z.string().min(1),
+        ownedByUser: z.boolean().optional(),
         fields: z.array(resourceFieldSchema).default([])
       }
     },
     async (input: CreateResourceInput) =>
-      request(apiBaseUrl, "/resources", {
+      request(apiBaseUrl, "/resources", undefined, {
         method: "POST",
         body: JSON.stringify(input)
       })
@@ -79,10 +81,11 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
     {
       description: "List rows for a Backforge resource.",
       inputSchema: {
-        resource: z.string().min(1)
+        resource: z.string().min(1),
+        authToken: z.string().optional()
       }
     },
-    async ({ resource }) => request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows`)
+    async ({ resource, authToken }) => request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows`, authToken)
   );
 
   server.registerTool(
@@ -91,11 +94,12 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       description: "Insert a row into a Backforge resource.",
       inputSchema: {
         resource: z.string().min(1),
+        authToken: z.string().optional(),
         data: z.record(z.unknown())
       }
     },
-    async ({ resource, data }) =>
-      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows`, {
+    async ({ resource, authToken, data }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows`, authToken, {
         method: "POST",
         body: JSON.stringify(data)
       })

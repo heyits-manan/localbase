@@ -1,5 +1,7 @@
 export type {
   ColumnType,
+  AuthSession,
+  AuthUser,
   CreateResourceInput,
   CreateTableInput,
   ForgeColumn,

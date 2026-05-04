@@ -1,4 +1,4 @@
-import type { ColumnType, CreateResourceInput, CreateTableInput, ForgeColumn, ForgeResource, ForgeTable } from "@backforge/shared";
+import type { ColumnType, CreateTableInput, CreateResourceInput, ForgeColumn, ForgeResource, ForgeTable } from "@backforge/shared";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "../db/client.js";
@@ -20,6 +20,7 @@ const columnTypeSql: Record<ColumnType, string> = {
 
 export const createTableInputSchema = z.object({
   tableName: z.string().min(1),
+  ownedByUser: z.boolean().optional(),
   columns: z
     .array(
       z.object({
@@ -36,6 +37,7 @@ export const createTableInputSchema = z.object({
 
 export const createResourceInputSchema = z.object({
   name: z.string().min(1),
+  ownedByUser: z.boolean().optional(),
   fields: z
     .array(
       z.object({
@@ -78,6 +80,7 @@ function toForgeTable(row: typeof forgeTables.$inferSelect, columns?: ForgeColum
     id: row.id,
     projectId: row.projectId ?? "",
     tableName: row.tableName,
+    ownedByUser: row.ownedByUser,
     createdAt: row.createdAt.toISOString(),
     columns
   };
@@ -89,6 +92,7 @@ function toForgeResource(table: ForgeTable): ForgeResource {
     projectId: table.projectId,
     name: table.tableName,
     tableName: table.tableName,
+    ownedByUser: table.ownedByUser,
     createdAt: table.createdAt,
     fields: table.columns
   };
@@ -153,14 +157,27 @@ function toResourceInput(input: CreateResourceInput): CreateTableInput {
   const parsed = createResourceInputSchema.parse(input);
   return {
     tableName: parsed.name,
-    columns: parsed.fields.map((field) => ({
-      name: field.name,
-      type: field.type,
-      nullable: field.required === true ? false : true,
-      unique: field.unique,
-      defaultValue: field.defaultValue,
-      indexed: field.indexed
-    }))
+    ownedByUser: parsed.ownedByUser,
+    columns: [
+      ...(parsed.ownedByUser === true
+        ? [
+            {
+              name: "user_id",
+              type: "uuid" as const,
+              nullable: false,
+              indexed: true
+            }
+          ]
+        : []),
+      ...parsed.fields.map((field) => ({
+        name: field.name,
+        type: field.type,
+        nullable: field.required === true ? false : true,
+        unique: field.unique,
+        defaultValue: field.defaultValue,
+        indexed: field.indexed
+      }))
+    ]
   };
 }
 
@@ -196,7 +213,22 @@ export async function describeResource(name: string): Promise<ForgeResource> {
 export async function createTable(input: CreateTableInput): Promise<ForgeTable> {
   const parsed = createTableInputSchema.parse(input);
   const tableName = validateTableName(parsed.tableName);
-  validateColumns(parsed);
+  const normalizedInput: CreateTableInput = {
+    ...parsed,
+    columns:
+      parsed.ownedByUser === true && !parsed.columns.some((column) => column.name === "user_id")
+        ? [
+            {
+              name: "user_id",
+              type: "uuid",
+              nullable: false,
+              indexed: true
+            },
+            ...parsed.columns
+          ]
+        : parsed.columns
+  };
+  validateColumns(normalizedInput);
 
   const existing = await db.select().from(forgeTables).where(eq(forgeTables.tableName, tableName)).limit(1);
   if (existing[0]) {
@@ -209,10 +241,13 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
   try {
     await client.query("BEGIN");
 
-    const columnSql = parsed.columns.map((column) => {
+    const columnSql = normalizedInput.columns.map((column) => {
       const parts = [quoteIdentifier(column.name), columnTypeSql[column.type]];
       if (column.nullable === false) {
         parts.push("NOT NULL");
+      }
+      if (column.name === "user_id") {
+        parts.push("REFERENCES auth_users(id)");
       }
       if (column.unique === true) {
         parts.push("UNIQUE");
@@ -239,7 +274,7 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
 
     await client.query(createSql);
 
-    for (const column of parsed.columns) {
+    for (const column of normalizedInput.columns) {
       if (column.indexed === true && column.unique !== true) {
         const indexName = `${tableName}_${column.name}_idx`;
         await client.query(
@@ -248,9 +283,15 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
       }
     }
 
-    const tableResult = await client.query<{ id: string; project_id: string; table_name: string; created_at: Date }>(
-      "INSERT INTO forge_tables (project_id, table_name) VALUES ($1, $2) RETURNING id, project_id, table_name, created_at",
-      [project.id, tableName]
+    const tableResult = await client.query<{
+      id: string;
+      project_id: string;
+      table_name: string;
+      owned_by_user: boolean;
+      created_at: Date;
+    }>(
+      "INSERT INTO forge_tables (project_id, table_name, owned_by_user) VALUES ($1, $2, $3) RETURNING id, project_id, table_name, owned_by_user, created_at",
+      [project.id, tableName, normalizedInput.ownedByUser ?? false]
     );
 
     const tableRow = tableResult.rows[0];
@@ -258,7 +299,7 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
       throw new ServiceError("Failed to store table metadata", 500);
     }
 
-    for (const column of parsed.columns) {
+    for (const column of normalizedInput.columns) {
       await client.query(
         "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed) VALUES ($1, $2, $3, $4, $5, $6, $7)",
         [

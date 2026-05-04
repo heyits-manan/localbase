@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
 import morgan from "morgan";
 import { env } from "./env.js";
+import { authRouter } from "./routes/auth.js";
 import { crudRouter } from "./routes/crud.js";
 import { healthRouter } from "./routes/health.js";
 import { resourcesRouter } from "./routes/resources.js";
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 app.use(healthRouter);
+app.use(authRouter);
 app.use(schemaRouter);
 app.use(resourcesRouter);
 app.use(crudRouter);

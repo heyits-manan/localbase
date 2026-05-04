@@ -1,16 +1,18 @@
-import type { CreateResourceInput, ForgeResource } from "@backforge/shared";
+import type { AuthSession, AuthUser, CreateResourceInput, ForgeResource } from "@backforge/shared";
 
 export type BackforgeClientOptions = {
   baseUrl: string;
+  token?: string;
 };
 
 type JsonRecord = Record<string, unknown>;
 
-async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
+async function request<T>(baseUrl: string, path: string, token?: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers
     }
   });
@@ -32,22 +34,53 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
 
 export function createBackforgeClient(options: BackforgeClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, "");
+  let authToken = options.token;
 
   return {
+    auth: {
+      setToken: (token: string | undefined) => {
+        authToken = token;
+      },
+      signUp: async (email: string, password: string) => {
+        const session = await request<AuthSession>(baseUrl, "/auth/signup", authToken, {
+          method: "POST",
+          body: JSON.stringify({ email, password })
+        });
+        authToken = session.token;
+        return session;
+      },
+      signIn: async (email: string, password: string) => {
+        const session = await request<AuthSession>(baseUrl, "/auth/login", authToken, {
+          method: "POST",
+          body: JSON.stringify({ email, password })
+        });
+        authToken = session.token;
+        return session;
+      },
+      signOut: async () => {
+        const result = await request<{ ok: true }>(baseUrl, "/auth/logout", authToken, { method: "POST" });
+        authToken = undefined;
+        return result;
+      },
+      getUser: async () => {
+        const result = await request<{ user: AuthUser | null }>(baseUrl, "/auth/me", authToken);
+        return result.user;
+      }
+    },
     resources: {
-      list: () => request<ForgeResource[]>(baseUrl, "/resources"),
-      describe: (name: string) => request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}`),
+      list: () => request<ForgeResource[]>(baseUrl, "/resources", authToken),
+      describe: (name: string) => request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}`, authToken),
       create: (data: CreateResourceInput) =>
-        request<ForgeResource>(baseUrl, "/resources", {
+        request<ForgeResource>(baseUrl, "/resources", authToken, {
           method: "POST",
           body: JSON.stringify(data)
         }),
       rows(name: string) {
         const path = `/resources/${encodeURIComponent(name)}/rows`;
         return {
-          list: () => request<unknown[]>(baseUrl, path),
+          list: () => request<unknown[]>(baseUrl, path, authToken),
           insert: (data: JsonRecord) =>
-            request<unknown>(baseUrl, path, {
+            request<unknown>(baseUrl, path, authToken, {
               method: "POST",
               body: JSON.stringify(data)
             })
@@ -58,20 +91,20 @@ export function createBackforgeClient(options: BackforgeClientOptions) {
       const path = `/api/${encodeURIComponent(table)}`;
 
       return {
-        select: () => request<unknown[]>(baseUrl, path),
-        get: (id: string) => request<unknown>(baseUrl, `${path}/${encodeURIComponent(id)}`),
+        select: () => request<unknown[]>(baseUrl, path, authToken),
+        get: (id: string) => request<unknown>(baseUrl, `${path}/${encodeURIComponent(id)}`, authToken),
         insert: (data: JsonRecord) =>
-          request<unknown>(baseUrl, path, {
+          request<unknown>(baseUrl, path, authToken, {
             method: "POST",
             body: JSON.stringify(data)
           }),
         update: (id: string, data: JsonRecord) =>
-          request<unknown>(baseUrl, `${path}/${encodeURIComponent(id)}`, {
+          request<unknown>(baseUrl, `${path}/${encodeURIComponent(id)}`, authToken, {
             method: "PATCH",
             body: JSON.stringify(data)
           }),
         delete: (id: string) =>
-          request<{ ok: true }>(baseUrl, `${path}/${encodeURIComponent(id)}`, {
+          request<{ ok: true }>(baseUrl, `${path}/${encodeURIComponent(id)}`, authToken, {
             method: "DELETE"
           })
       };

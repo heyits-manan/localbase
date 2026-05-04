@@ -1,6 +1,6 @@
 # Backforge
 
-Backforge is a local-first backend foundation inspired by InsForge. It lets AI coding agents manage PostgreSQL tables through an MCP server, exposes generic CRUD APIs, and leaves room for auth and storage later.
+Backforge is a local-first backend foundation inspired by InsForge. It lets AI coding agents manage PostgreSQL resources through an MCP server, exposes generic CRUD APIs, and includes a minimal email/password auth layer for user-owned data.
 
 ## Requirements
 
@@ -61,6 +61,39 @@ curl -X POST http://localhost:4000/resources/companies/rows \
 curl http://localhost:4000/resources/companies/rows
 ```
 
+Create a user and save the bearer token:
+
+```bash
+TOKEN=$(
+  curl -s -X POST http://localhost:4000/auth/signup \
+    -H "Content-Type: application/json" \
+    -d '{"email":"ada@example.com","password":"password123"}' |
+    node -pe 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).token'
+)
+```
+
+Create a user-owned resource:
+
+```bash
+curl -X POST http://localhost:4000/resources \
+  -H "Content-Type: application/json" \
+  -d '{"name":"todos","ownedByUser":true,"fields":[{"name":"title","type":"text","required":true},{"name":"done","type":"boolean","defaultValue":false}]}'
+```
+
+Insert and list owned rows with the token:
+
+```bash
+curl -X POST http://localhost:4000/resources/todos/rows \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Ship auth","done":false}'
+
+curl http://localhost:4000/resources/todos/rows \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Owned resources automatically add `user_id`, reject client-supplied `user_id`, and only return rows for the authenticated user.
+
 The older table-oriented API remains available:
 
 ```bash
@@ -81,7 +114,7 @@ curl http://localhost:4000/api/companies
 
 ## MCP Use
 
-Start the MCP server with `pnpm dev:mcp`. Local coding agents can call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `list_rows`, and `insert_row` over stdio. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`. The MCP server calls the API using `API_BASE_URL`, defaulting to `http://localhost:4000`.
+Start the MCP server with `pnpm dev:mcp`. Local coding agents can call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `list_rows`, and `insert_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`. The MCP server calls the API using `API_BASE_URL`, defaulting to `http://localhost:4000`.
 
 ## SDK Example
 
@@ -90,17 +123,21 @@ import { createBackforgeClient } from "@backforge/sdk";
 
 const forge = createBackforgeClient({ baseUrl: "http://localhost:4000" });
 
+await forge.auth.signUp("ada@example.com", "password123");
+await forge.auth.getUser();
+
 await forge.resources.create({
-  name: "companies",
+  name: "todos",
+  ownedByUser: true,
   fields: [
-    { name: "name", type: "text", required: true },
-    { name: "website", type: "text" }
+    { name: "title", type: "text", required: true },
+    { name: "done", type: "boolean", defaultValue: false }
   ]
 });
 await forge.resources.list();
-await forge.resources.describe("companies");
-await forge.resources.rows("companies").insert({ name: "Acme" });
-await forge.resources.rows("companies").list();
+await forge.resources.describe("todos");
+await forge.resources.rows("todos").insert({ title: "Ship auth" });
+await forge.resources.rows("todos").list();
 
 await forge.from("companies").select();
 await forge.from("companies").get("row-id");

@@ -4,10 +4,11 @@ import {
   createResource,
   createResourceInputSchema,
   describeResource,
+  getRegisteredColumns,
   listResources
 } from "../services/schema-service.js";
 import { pool } from "../db/client.js";
-import { getRegisteredColumns } from "../services/schema-service.js";
+import { optionalAuth, type AuthenticatedRequest } from "../middleware/auth.js";
 import { assertSafeColumnName, assertSafeTableName, quoteIdentifier } from "../utils/sql-identifiers.js";
 
 export const resourcesRouter: Router = Router();
@@ -25,7 +26,7 @@ function getAllowedBodyEntries(body: JsonRecord, allowedColumns: Set<string>): A
   const entries = Object.entries(body);
   for (const [key] of entries) {
     assertSafeColumnName(key);
-    if (key === "id" || key === "created_at" || key === "updated_at") {
+    if (key === "id" || key === "user_id" || key === "created_at" || key === "updated_at") {
       throw new Error(`Field cannot be modified: ${key}`);
     }
     if (!allowedColumns.has(key)) {
@@ -65,26 +66,52 @@ resourcesRouter.post("/resources", async (req, res, next) => {
   }
 });
 
-resourcesRouter.get("/resources/:name/rows", async (req, res, next) => {
+class AuthRequiredError extends Error {
+  statusCode = 401;
+
+  constructor() {
+    super("Authentication required");
+  }
+}
+
+resourcesRouter.get("/resources/:name/rows", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const resourceName = assertSafeTableName(req.params.name);
-    await getRegisteredColumns(resourceName);
-    const result = await pool.query(`SELECT * FROM ${quoteIdentifier(resourceName)} ORDER BY created_at DESC LIMIT $1`, [
-      100
-    ]);
+    const resource = await describeResource(resourceName);
+    const values: unknown[] = [100];
+    const whereSql = resource.ownedByUser ? "WHERE user_id = $2" : "";
+    if (resource.ownedByUser) {
+      if (!req.auth) {
+        throw new AuthRequiredError();
+      }
+      values.push(req.auth.user.id);
+    }
+
+    const result = await pool.query(
+      `SELECT * FROM ${quoteIdentifier(resourceName)} ${whereSql} ORDER BY created_at DESC LIMIT $1`,
+      values
+    );
     res.json(result.rows);
   } catch (error) {
     next(error);
   }
 });
 
-resourcesRouter.post("/resources/:name/rows", async (req, res, next) => {
+resourcesRouter.post("/resources/:name/rows", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const resourceName = assertSafeTableName(req.params.name);
+    const resource = await describeResource(resourceName);
+    if (resource.ownedByUser && !req.auth) {
+      throw new AuthRequiredError();
+    }
+
     const columns = await getRegisteredColumns(resourceName);
     const allowedColumns = new Set(columns.map((column) => column.columnName));
     const body = ensureObject(req.body);
     const entries = getAllowedBodyEntries(body, allowedColumns);
+    if (resource.ownedByUser) {
+      entries.push(["user_id", req.auth?.user.id]);
+    }
 
     if (entries.length === 0) {
       const result = await pool.query(`INSERT INTO ${quoteIdentifier(resourceName)} DEFAULT VALUES RETURNING *`);

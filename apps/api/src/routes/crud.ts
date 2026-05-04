@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db/client.js";
-import { getRegisteredColumns } from "../services/schema-service.js";
+import { optionalAuth, type AuthenticatedRequest } from "../middleware/auth.js";
+import { describeResource, getRegisteredColumns } from "../services/schema-service.js";
 import { assertSafeColumnName, assertSafeTableName, quoteIdentifier } from "../utils/sql-identifiers.js";
 
 export const crudRouter: Router = Router();
@@ -18,7 +19,7 @@ function getAllowedBodyEntries(body: JsonRecord, allowedColumns: Set<string>): A
   const entries = Object.entries(body);
   for (const [key] of entries) {
     assertSafeColumnName(key);
-    if (key === "id" || key === "created_at" || key === "updated_at") {
+    if (key === "id" || key === "user_id" || key === "created_at" || key === "updated_at") {
       throw new Error(`Column cannot be modified: ${key}`);
     }
     if (!allowedColumns.has(key)) {
@@ -29,24 +30,52 @@ function getAllowedBodyEntries(body: JsonRecord, allowedColumns: Set<string>): A
   return entries;
 }
 
-crudRouter.get("/api/:table", async (req, res, next) => {
+class AuthRequiredError extends Error {
+  statusCode = 401;
+
+  constructor() {
+    super("Authentication required");
+  }
+}
+
+crudRouter.get("/api/:table", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const tableName = assertSafeTableName(req.params.table);
-    await getRegisteredColumns(tableName);
-    const result = await pool.query(`SELECT * FROM ${quoteIdentifier(tableName)} ORDER BY created_at DESC LIMIT $1`, [100]);
+    const resource = await describeResource(tableName);
+    const values: unknown[] = [100];
+    const whereSql = resource.ownedByUser ? "WHERE user_id = $2" : "";
+    if (resource.ownedByUser) {
+      if (!req.auth) {
+        throw new AuthRequiredError();
+      }
+      values.push(req.auth.user.id);
+    }
+
+    const result = await pool.query(
+      `SELECT * FROM ${quoteIdentifier(tableName)} ${whereSql} ORDER BY created_at DESC LIMIT $1`,
+      values
+    );
     res.json(result.rows);
   } catch (error) {
     next(error);
   }
 });
 
-crudRouter.post("/api/:table", async (req, res, next) => {
+crudRouter.post("/api/:table", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const tableName = assertSafeTableName(req.params.table);
+    const resource = await describeResource(tableName);
+    if (resource.ownedByUser && !req.auth) {
+      throw new AuthRequiredError();
+    }
+
     const columns = await getRegisteredColumns(tableName);
     const allowedColumns = new Set(columns.map((column) => column.columnName));
     const body = ensureObject(req.body);
     const entries = getAllowedBodyEntries(body, allowedColumns);
+    if (resource.ownedByUser) {
+      entries.push(["user_id", req.auth?.user.id]);
+    }
 
     if (entries.length === 0) {
       const result = await pool.query(`INSERT INTO ${quoteIdentifier(tableName)} DEFAULT VALUES RETURNING *`);
@@ -68,11 +97,21 @@ crudRouter.post("/api/:table", async (req, res, next) => {
   }
 });
 
-crudRouter.get("/api/:table/:id", async (req, res, next) => {
+crudRouter.get("/api/:table/:id", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const tableName = assertSafeTableName(req.params.table);
-    await getRegisteredColumns(tableName);
-    const result = await pool.query(`SELECT * FROM ${quoteIdentifier(tableName)} WHERE id = $1 LIMIT 1`, [req.params.id]);
+    const resource = await describeResource(tableName);
+    const values = [req.params.id];
+    let whereSql = "WHERE id = $1";
+    if (resource.ownedByUser) {
+      if (!req.auth) {
+        throw new AuthRequiredError();
+      }
+      values.push(req.auth.user.id);
+      whereSql += " AND user_id = $2";
+    }
+
+    const result = await pool.query(`SELECT * FROM ${quoteIdentifier(tableName)} ${whereSql} LIMIT 1`, values);
     if (!result.rows[0]) {
       res.status(404).json({ error: { message: "Row not found" } });
       return;
@@ -83,9 +122,14 @@ crudRouter.get("/api/:table/:id", async (req, res, next) => {
   }
 });
 
-crudRouter.patch("/api/:table/:id", async (req, res, next) => {
+crudRouter.patch("/api/:table/:id", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const tableName = assertSafeTableName(req.params.table);
+    const resource = await describeResource(tableName);
+    if (resource.ownedByUser && !req.auth) {
+      throw new AuthRequiredError();
+    }
+
     const columns = await getRegisteredColumns(tableName);
     const allowedColumns = new Set(columns.map((column) => column.columnName));
     const body = ensureObject(req.body);
@@ -99,9 +143,15 @@ crudRouter.patch("/api/:table/:id", async (req, res, next) => {
     assignments.push("updated_at = now()");
     const values = entries.map(([_key, value]) => value);
     values.push(req.params.id);
+    const ownerClause = resource.ownedByUser ? ` AND user_id = $${values.length + 1}` : "";
+    if (resource.ownedByUser) {
+      values.push(req.auth?.user.id);
+    }
 
     const result = await pool.query(
-      `UPDATE ${quoteIdentifier(tableName)} SET ${assignments.join(", ")} WHERE id = $${values.length} RETURNING *`,
+      `UPDATE ${quoteIdentifier(tableName)} SET ${assignments.join(", ")} WHERE id = $${
+        entries.length + 1
+      }${ownerClause} RETURNING *`,
       values
     );
 
@@ -116,11 +166,21 @@ crudRouter.patch("/api/:table/:id", async (req, res, next) => {
   }
 });
 
-crudRouter.delete("/api/:table/:id", async (req, res, next) => {
+crudRouter.delete("/api/:table/:id", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const tableName = assertSafeTableName(req.params.table);
-    await getRegisteredColumns(tableName);
-    await pool.query(`DELETE FROM ${quoteIdentifier(tableName)} WHERE id = $1`, [req.params.id]);
+    const resource = await describeResource(tableName);
+    const values = [req.params.id];
+    let whereSql = "WHERE id = $1";
+    if (resource.ownedByUser) {
+      if (!req.auth) {
+        throw new AuthRequiredError();
+      }
+      values.push(req.auth.user.id);
+      whereSql += " AND user_id = $2";
+    }
+
+    await pool.query(`DELETE FROM ${quoteIdentifier(tableName)} ${whereSql}`, values);
     res.json({ ok: true });
   } catch (error) {
     next(error);

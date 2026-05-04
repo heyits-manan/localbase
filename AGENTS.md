@@ -39,6 +39,8 @@ Tests should cover normal flows, important edge cases, and failure paths. If a c
 
 This repository has no existing commit history, so use concise, imperative commit messages such as `Add project scaffold` or `Implement session validation`.
 
+When making repository changes, create commits for each small feature or coherent change once it is complete and verified. Do not commit every tiny line edit, but avoid leaving good-sized completed changes uncommitted.
+
 Pull requests should include a summary, rationale, tests or checks run, and screenshots or logs for user-facing changes. Link related issues when available and call out breaking changes, migrations, or follow-up work.
 
 ## Security & Configuration Tips

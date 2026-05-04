@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   addResourceField,
   addResourceFieldInputSchema,
+  addResourceIndex,
+  addResourceIndexInputSchema,
   createResource,
   createResourceInputSchema,
   describeResource,
@@ -16,6 +18,10 @@ import { assertSafeColumnName, assertSafeTableName, quoteIdentifier } from "../u
 export const resourcesRouter: Router = Router();
 
 type JsonRecord = Record<string, unknown>;
+type Filter = {
+  field: string;
+  value: string;
+};
 
 function ensureObject(value: unknown): JsonRecord {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -37,6 +43,44 @@ function getAllowedBodyEntries(body: JsonRecord, allowedColumns: Set<string>): A
   }
 
   return entries;
+}
+
+function getFilters(query: Record<string, unknown>, allowedColumns: Set<string>): Filter[] {
+  const filters: Filter[] = [];
+
+  for (const [key, value] of Object.entries(query)) {
+    const bracketMatch = /^where\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/.exec(key);
+    const fieldName = bracketMatch?.[1];
+    if (!fieldName) {
+      continue;
+    }
+
+    const safeName = assertSafeColumnName(fieldName);
+    if (!allowedColumns.has(safeName)) {
+      throw new Error(`Unknown filter field: ${safeName}`);
+    }
+    if (Array.isArray(value)) {
+      throw new Error(`Filter field cannot be repeated: ${safeName}`);
+    }
+    if (typeof value !== "string") {
+      throw new Error(`Filter value must be a string: ${safeName}`);
+    }
+
+    filters.push({ field: safeName, value });
+  }
+
+  return filters;
+}
+
+function toWhereSql(filters: Filter[]): { sql: string; values: unknown[] } {
+  if (filters.length === 0) {
+    return { sql: "", values: [] };
+  }
+
+  return {
+    sql: `WHERE ${filters.map((filter, index) => `${quoteIdentifier(filter.field)} = $${index + 1}`).join(" AND ")}`,
+    values: filters.map((filter) => filter.value)
+  };
 }
 
 resourcesRouter.get("/resources", async (_req, res, next) => {
@@ -73,6 +117,19 @@ resourcesRouter.post("/resources/:name/fields", async (req, res, next) => {
   }
 });
 
+resourcesRouter.post("/resources/:name/indexes", async (req, res, next) => {
+  try {
+    const input = addResourceIndexInputSchema.parse(req.body);
+    res.json(await addResourceIndex(req.params.name, input));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      next(new Error(error.issues.map((issue) => issue.message).join("; ")));
+      return;
+    }
+    next(error);
+  }
+});
+
 resourcesRouter.get("/resources/:name", async (req, res, next) => {
   try {
     res.json(await describeResource(req.params.name));
@@ -93,17 +150,20 @@ resourcesRouter.get("/resources/:name/rows", optionalAuth, async (req: Authentic
   try {
     const resourceName = assertSafeTableName(req.params.name);
     const resource = await describeResource(resourceName);
-    const values: unknown[] = [100];
-    const whereSql = resource.ownedByUser ? "WHERE user_id = $2" : "";
+    const columns = await getRegisteredColumns(resourceName);
+    const allowedColumns = new Set(columns.map((column) => column.columnName));
+    const filters = getFilters(req.query, allowedColumns);
     if (resource.ownedByUser) {
       if (!req.auth) {
         throw new AuthRequiredError();
       }
-      values.push(req.auth.user.id);
+      filters.unshift({ field: "user_id", value: req.auth.user.id });
     }
+    const where = toWhereSql(filters);
+    const values = [...where.values, 100];
 
     const result = await pool.query(
-      `SELECT * FROM ${quoteIdentifier(resourceName)} ${whereSql} ORDER BY created_at DESC LIMIT $1`,
+      `SELECT * FROM ${quoteIdentifier(resourceName)} ${where.sql} ORDER BY created_at DESC LIMIT $${values.length}`,
       values
     );
     res.json(result.rows);

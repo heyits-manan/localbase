@@ -98,15 +98,39 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   );
 
   server.registerTool(
+    "add_index",
+    {
+      description: "Add an index to an existing Backforge resource field.",
+      inputSchema: {
+        resource: z.string().min(1),
+        field: z.string().min(1)
+      }
+    },
+    async ({ resource, field }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/indexes`, undefined, {
+        method: "POST",
+        body: JSON.stringify({ field })
+      })
+  );
+
+  server.registerTool(
     "list_rows",
     {
       description: "List rows for a Backforge resource.",
       inputSchema: {
         resource: z.string().min(1),
-        authToken: z.string().optional()
+        authToken: z.string().optional(),
+        where: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
       }
     },
-    async ({ resource, authToken }) => request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows`, authToken)
+    async ({ resource, authToken, where }) => {
+      const params = new URLSearchParams();
+      for (const [field, value] of Object.entries(where ?? {})) {
+        params.set(`where[${field}]`, String(value));
+      }
+      const query = params.toString();
+      return request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows${query ? `?${query}` : ""}`, authToken);
+    }
   );
 
   server.registerTool(

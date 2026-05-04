@@ -1,4 +1,11 @@
-import type { AddResourceFieldInput, AuthSession, AuthUser, CreateResourceInput, ForgeResource } from "@backforge/shared";
+import type {
+  AddResourceFieldInput,
+  AddResourceIndexInput,
+  AuthSession,
+  AuthUser,
+  CreateResourceInput,
+  ForgeResource
+} from "@backforge/shared";
 
 export type BackforgeClientOptions = {
   baseUrl: string;
@@ -6,6 +13,19 @@ export type BackforgeClientOptions = {
 };
 
 type JsonRecord = Record<string, unknown>;
+type RowListOptions = {
+  where?: Record<string, string | number | boolean>;
+};
+
+function buildQuery(options?: RowListOptions): string {
+  const params = new URLSearchParams();
+  for (const [field, value] of Object.entries(options?.where ?? {})) {
+    params.set(`where[${field}]`, String(value));
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
 
 async function request<T>(baseUrl: string, path: string, token?: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -80,10 +100,15 @@ export function createBackforgeClient(options: BackforgeClientOptions) {
           method: "POST",
           body: JSON.stringify(data)
         }),
+      addIndex: (name: string, field: string) =>
+        request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}/indexes`, authToken, {
+          method: "POST",
+          body: JSON.stringify({ field } satisfies AddResourceIndexInput)
+        }),
       rows(name: string) {
         const path = `/resources/${encodeURIComponent(name)}/rows`;
         return {
-          list: () => request<unknown[]>(baseUrl, path, authToken),
+          list: (options?: RowListOptions) => request<unknown[]>(baseUrl, `${path}${buildQuery(options)}`, authToken),
           insert: (data: JsonRecord) =>
             request<unknown>(baseUrl, path, authToken, {
               method: "POST",
@@ -96,7 +121,7 @@ export function createBackforgeClient(options: BackforgeClientOptions) {
       const path = `/api/${encodeURIComponent(table)}`;
 
       return {
-        select: () => request<unknown[]>(baseUrl, path, authToken),
+        select: (options?: RowListOptions) => request<unknown[]>(baseUrl, `${path}${buildQuery(options)}`, authToken),
         get: (id: string) => request<unknown>(baseUrl, `${path}/${encodeURIComponent(id)}`, authToken),
         insert: (data: JsonRecord) =>
           request<unknown>(baseUrl, path, authToken, {

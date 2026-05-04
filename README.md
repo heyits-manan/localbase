@@ -74,6 +74,21 @@ curl -X POST http://localhost:4000/resources/companies/fields \
   -d '{"name":"rating","type":"integer","required":true,"defaultValue":0,"indexed":true}'
 ```
 
+Add an index to an existing field:
+
+```bash
+curl -X POST http://localhost:4000/resources/companies/indexes \
+  -H "Content-Type: application/json" \
+  -d '{"field":"active"}'
+```
+
+Filter listed rows:
+
+```bash
+curl 'http://localhost:4000/resources/companies/rows?where[active]=true'
+curl 'http://localhost:4000/api/companies?where[active]=true'
+```
+
 Create a user and save the bearer token:
 
 ```bash
@@ -154,7 +169,7 @@ Example MCP config:
 }
 ```
 
-Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `add_field`, `list_rows`, and `insert_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`.
+Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `add_field`, `add_index`, `list_rows`, and `insert_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`.
 
 For this checkout, replace `/absolute/path/to/backforge` with:
 
@@ -168,7 +183,7 @@ After connecting the MCP server in Codex, ask the agent:
 Use the backforge MCP server. Call get_backend_summary, then create a products resource with name text required, price integer required, and in_stock boolean default true.
 ```
 
-The agent should call `create_resource` and `add_field`, not write SQL manually.
+The agent should call `create_resource`, `add_field`, and `add_index`, not write SQL manually.
 
 ## SDK Example
 
@@ -191,10 +206,11 @@ await forge.resources.create({
 await forge.resources.list();
 await forge.resources.describe("todos");
 await forge.resources.addField("todos", { name: "priority", type: "integer", defaultValue: 0 });
+await forge.resources.addIndex("todos", "priority");
 await forge.resources.rows("todos").insert({ title: "Ship auth" });
-await forge.resources.rows("todos").list();
+await forge.resources.rows("todos").list({ where: { priority: 0 } });
 
-await forge.from("companies").select();
+await forge.from("companies").select({ where: { active: true } });
 await forge.from("companies").get("row-id");
 await forge.from("companies").insert({ name: "Acme" });
 await forge.from("companies").update("row-id", { name: "Acme Inc" });

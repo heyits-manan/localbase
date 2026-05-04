@@ -35,6 +35,10 @@ export type AddResourceFieldInput = {
   indexed?: boolean;
 };
 
+export type AddResourceIndexInput = {
+  field: string;
+};
+
 export type ForgeColumn = {
   id: string;
   tableId: string;

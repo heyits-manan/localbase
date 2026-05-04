@@ -1,5 +1,6 @@
 import type {
   AddResourceFieldInput,
+  AddResourceIndexInput,
   ColumnType,
   CreateResourceInput,
   CreateTableInput,
@@ -68,6 +69,10 @@ export const addResourceFieldInputSchema = z.object({
   unique: z.boolean().optional(),
   defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
   indexed: z.boolean().optional()
+});
+
+export const addResourceIndexInputSchema = z.object({
+  field: z.string().min(1)
 });
 
 class ServiceError extends Error {
@@ -423,6 +428,44 @@ export async function addResourceField(resourceName: string, input: AddResourceF
     await client.query("ROLLBACK");
     if (error instanceof Error && "code" in error && error.code === "42701") {
       throw new ServiceError(`Field already exists: ${fieldName}`, 409);
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function addResourceIndex(resourceName: string, input: AddResourceIndexInput): Promise<ForgeResource> {
+  const tableName = assertSafeTableName(resourceName);
+  const parsed = addResourceIndexInputSchema.parse(input);
+  const fieldName = validateResourceFieldName(parsed.field);
+  const resource = await describeResource(tableName);
+  const field = resource.fields?.find((candidate) => candidate.columnName === fieldName);
+  if (!field) {
+    throw new ServiceError(`Unknown field: ${fieldName}`, 404);
+  }
+  if (field.isIndexed || field.isUnique) {
+    return resource;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await createColumnIndex(client, tableName, fieldName);
+    await client.query("UPDATE forge_columns SET is_indexed = true WHERE table_id = $1 AND column_name = $2", [
+      resource.id,
+      fieldName
+    ]);
+    await client.query("COMMIT");
+    return describeResource(tableName);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error instanceof Error && "code" in error && error.code === "42P07") {
+      await db
+        .update(forgeColumns)
+        .set({ isIndexed: true })
+        .where(and(eq(forgeColumns.tableId, resource.id), eq(forgeColumns.columnName, fieldName)));
+      return describeResource(tableName);
     }
     throw error;
   } finally {

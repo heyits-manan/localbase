@@ -2,6 +2,7 @@ import "dotenv/config";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerAuthTools } from "./tools/auth.js";
+import { registerBackendSummaryTool } from "./tools/backend-summary.js";
 import { registerCreateTableTool } from "./tools/create-table.js";
 import { registerDescribeTableTool } from "./tools/describe-table.js";
 import { registerListTablesTool } from "./tools/list-tables.js";
@@ -19,6 +20,7 @@ registerDescribeTableTool(server, apiBaseUrl);
 registerCreateTableTool(server, apiBaseUrl);
 registerResourceTools(server, apiBaseUrl);
 registerAuthTools(server);
+registerBackendSummaryTool(server, apiBaseUrl);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

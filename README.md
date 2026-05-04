@@ -29,6 +29,7 @@ DATABASE_URL=postgresql://backforge:backforge@localhost:5432/backforge
 
 - `pnpm dev:api`: start the Express API on port `4000`.
 - `pnpm dev:mcp`: start the MCP stdio server.
+- `pnpm --silent mcp`: start the quiet MCP stdio server for agent clients.
 - `pnpm db:generate`: generate Drizzle migrations for internal metadata tables.
 - `pnpm db:migrate`: apply Drizzle migrations.
 - `pnpm db:studio`: open Drizzle Studio.
@@ -114,7 +115,48 @@ curl http://localhost:4000/api/companies
 
 ## MCP Use
 
-Start the MCP server with `pnpm dev:mcp`. Local coding agents can call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `list_rows`, and `insert_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`. The MCP server calls the API using `API_BASE_URL`, defaulting to `http://localhost:4000`.
+Start the API first, then configure your MCP client to launch the quiet MCP command:
+
+```bash
+docker compose up -d postgres
+pnpm db:migrate
+pnpm dev:api
+```
+
+Use `pnpm --silent mcp` for MCP clients. It avoids package-manager lifecycle output on stdout, which is important for stdio MCP.
+
+Example MCP config:
+
+```json
+{
+  "mcpServers": {
+    "backforge": {
+      "command": "pnpm",
+      "args": ["--silent", "mcp"],
+      "cwd": "/absolute/path/to/backforge",
+      "env": {
+        "API_BASE_URL": "http://localhost:4000"
+      }
+    }
+  }
+}
+```
+
+Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `list_rows`, and `insert_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`.
+
+For this checkout, replace `/absolute/path/to/backforge` with:
+
+```text
+/media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/backforge
+```
+
+After connecting the MCP server in Codex, ask the agent:
+
+```text
+Use the backforge MCP server. Call get_backend_summary, then create a products resource with name text required, price integer required, and in_stock boolean default true.
+```
+
+The agent should call `create_resource`, not write SQL manually.
 
 ## SDK Example
 

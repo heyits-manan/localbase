@@ -10,6 +10,7 @@
     "dev": "pnpm --parallel --filter @backforge/api --filter @backforge/mcp dev",
     "dev:api": "pnpm --filter @backforge/api dev",
     "dev:mcp": "pnpm --filter @backforge/mcp dev",
+    "mcp": "pnpm --silent --filter @backforge/mcp exec tsx src/index.ts",
     "db:generate": "pnpm --filter @backforge/api db:generate",
     "db:migrate": "pnpm --filter @backforge/api db:migrate",
     "db:studio": "pnpm --filter @backforge/api db:studio",

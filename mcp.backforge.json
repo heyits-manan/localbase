@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "backforge": {
+      "command": "pnpm",
+      "args": ["--silent", "mcp"],
+      "cwd": "<absolute-path-to-backforge>",
+      "env": {
+        "API_BASE_URL": "http://localhost:4000"
+      }
+    }
+  }
+}

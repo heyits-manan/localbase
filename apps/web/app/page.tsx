@@ -11,6 +11,23 @@ const setupSteps = [
   "pnpm --silent mcp"
 ];
 
+const codexMcpSteps = [
+  "codex mcp add localbase \\",
+  "  --env API_BASE_URL=http://localhost:4000 \\",
+  "  -- pnpm --dir /absolute/path/to/localbase --silent mcp",
+  "codex mcp list",
+  "codex mcp get localbase"
+];
+
+const codexConfigLines = [
+  "[mcp_servers.localbase]",
+  'command = "pnpm"',
+  'args = ["--dir", "/absolute/path/to/localbase", "--silent", "mcp"]',
+  "",
+  "[mcp_servers.localbase.env]",
+  'API_BASE_URL = "http://localhost:4000"'
+];
+
 const workflow = [
   { label: "Prompt", detail: "Describe the backend resource you want." },
   { label: "MCP tool", detail: "Agent calls create_resource or row tools." },
@@ -183,6 +200,32 @@ export default function Home() {
             </p>
           </div>
           <CodeBlock lines={setupSteps} />
+        </div>
+      </section>
+
+      <section className="bg-stone-950 px-5 py-20 text-stone-50 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.88fr_1fr] lg:items-start">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-normal text-emerald-300">Connect agents</p>
+            <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">Add Localbase MCP to Codex CLI.</h2>
+            <p className="mt-5 leading-8 text-stone-300">
+              Start the API first, then register the MCP stdio server with Codex. Replace the absolute path with your
+              Localbase checkout path.
+            </p>
+            <div className="mt-6 rounded-md border border-stone-700 bg-stone-900 p-4 text-sm leading-6 text-stone-300">
+              Test it by asking Codex: Use the localbase MCP server. Call get_backend_summary, then list resources.
+            </div>
+          </div>
+          <div className="space-y-4">
+            <CodeBlock lines={codexMcpSteps} />
+            <pre className="overflow-x-auto rounded-md border border-stone-700 bg-[#0d100e] p-4 text-sm leading-7 text-stone-100 shadow-2xl shadow-black/20">
+              {codexConfigLines.map((line, index) => (
+                <code className="block whitespace-pre" key={`${line}-${index}`}>
+                  {line || " "}
+                </code>
+              ))}
+            </pre>
+          </div>
         </div>
       </section>
 

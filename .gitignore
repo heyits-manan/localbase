@@ -1,8 +1,11 @@
 node_modules/
 dist/
+.next/
 .env
 .env.local
 .DS_Store
 *.log
 coverage/
 .turbo/
+*.tsbuildinfo
+apps/web/next-env.d.ts

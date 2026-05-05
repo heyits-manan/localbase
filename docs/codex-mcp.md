@@ -55,4 +55,7 @@ The agent should not write SQL manually for this flow.
 - `create_resource`
 - `list_rows`
 - `insert_row`
+- `get_row`
+- `update_row`
+- `delete_row`
 - `describe_auth_config`

@@ -62,6 +62,18 @@ curl -X POST http://localhost:4000/resources/companies/rows \
 curl http://localhost:4000/resources/companies/rows
 ```
 
+Get, update, and delete a resource row:
+
+```bash
+curl http://localhost:4000/resources/companies/rows/row-id
+
+curl -X PATCH http://localhost:4000/resources/companies/rows/row-id \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Acme Inc"}'
+
+curl -X DELETE http://localhost:4000/resources/companies/rows/row-id
+```
+
 Add a field to an existing resource:
 
 ```bash
@@ -169,7 +181,7 @@ Example MCP config:
 }
 ```
 
-Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `add_field`, `add_index`, `list_rows`, and `insert_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`.
+Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `add_field`, `add_index`, `list_rows`, `insert_row`, `get_row`, `update_row`, and `delete_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`.
 
 For this checkout, replace `/absolute/path/to/backforge` with:
 
@@ -209,6 +221,9 @@ await forge.resources.addField("todos", { name: "priority", type: "integer", def
 await forge.resources.addIndex("todos", "priority");
 await forge.resources.rows("todos").insert({ title: "Ship auth" });
 await forge.resources.rows("todos").list({ where: { priority: 0 } });
+await forge.resources.rows("todos").get("row-id");
+await forge.resources.rows("todos").update("row-id", { done: true });
+await forge.resources.rows("todos").delete("row-id");
 
 await forge.from("companies").select({ where: { active: true } });
 await forge.from("companies").get("row-id");

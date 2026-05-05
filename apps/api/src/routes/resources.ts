@@ -207,3 +207,98 @@ resourcesRouter.post("/resources/:name/rows", optionalAuth, async (req: Authenti
     next(error);
   }
 });
+
+resourcesRouter.get("/resources/:name/rows/:id", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const resourceName = assertSafeTableName(req.params.name);
+    const resource = await describeResource(resourceName);
+    const values = [req.params.id];
+    let whereSql = "WHERE id = $1";
+    if (resource.ownedByUser) {
+      if (!req.auth) {
+        throw new AuthRequiredError();
+      }
+      values.push(req.auth.user.id);
+      whereSql += " AND user_id = $2";
+    }
+
+    const result = await pool.query(`SELECT * FROM ${quoteIdentifier(resourceName)} ${whereSql} LIMIT 1`, values);
+    if (!result.rows[0]) {
+      res.status(404).json({ error: { message: "Row not found" } });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+});
+
+resourcesRouter.patch("/resources/:name/rows/:id", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const resourceName = assertSafeTableName(req.params.name);
+    const resource = await describeResource(resourceName);
+    if (resource.ownedByUser && !req.auth) {
+      throw new AuthRequiredError();
+    }
+
+    const columns = await getRegisteredColumns(resourceName);
+    const allowedColumns = new Set(columns.map((column) => column.columnName));
+    const body = ensureObject(req.body);
+    const entries = getAllowedBodyEntries(body, allowedColumns);
+
+    if (entries.length === 0) {
+      throw new Error("No valid fields provided");
+    }
+
+    const assignments = entries.map(([key], index) => `${quoteIdentifier(key)} = $${index + 1}`);
+    assignments.push("updated_at = now()");
+    const values = entries.map(([_key, value]) => value);
+    values.push(req.params.id);
+    const ownerClause = resource.ownedByUser ? ` AND user_id = $${values.length + 1}` : "";
+    if (resource.ownedByUser) {
+      values.push(req.auth?.user.id);
+    }
+
+    const result = await pool.query(
+      `UPDATE ${quoteIdentifier(resourceName)} SET ${assignments.join(", ")} WHERE id = $${
+        entries.length + 1
+      }${ownerClause} RETURNING *`,
+      values
+    );
+
+    if (!result.rows[0]) {
+      res.status(404).json({ error: { message: "Row not found" } });
+      return;
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+});
+
+resourcesRouter.delete("/resources/:name/rows/:id", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const resourceName = assertSafeTableName(req.params.name);
+    const resource = await describeResource(resourceName);
+    const values = [req.params.id];
+    let whereSql = "WHERE id = $1";
+    if (resource.ownedByUser) {
+      if (!req.auth) {
+        throw new AuthRequiredError();
+      }
+      values.push(req.auth.user.id);
+      whereSql += " AND user_id = $2";
+    }
+
+    const result = await pool.query(`DELETE FROM ${quoteIdentifier(resourceName)} ${whereSql} RETURNING id`, values);
+    if (!result.rows[0]) {
+      res.status(404).json({ error: { message: "Row not found" } });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});

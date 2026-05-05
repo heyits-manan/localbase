@@ -14,6 +14,7 @@
     "db:generate": "pnpm --filter @backforge/api db:generate",
     "db:migrate": "pnpm --filter @backforge/api db:migrate",
     "db:studio": "pnpm --filter @backforge/api db:studio",
+    "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint"
   },

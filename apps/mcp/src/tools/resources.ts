@@ -149,4 +149,52 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
         body: JSON.stringify(data)
       })
   );
+
+  server.registerTool(
+    "get_row",
+    {
+      description: "Get one row from a Backforge resource by id.",
+      inputSchema: {
+        resource: z.string().min(1),
+        id: z.string().min(1),
+        authToken: z.string().optional()
+      }
+    },
+    async ({ resource, id, authToken }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows/${encodeURIComponent(id)}`, authToken)
+  );
+
+  server.registerTool(
+    "update_row",
+    {
+      description: "Update one row in a Backforge resource by id.",
+      inputSchema: {
+        resource: z.string().min(1),
+        id: z.string().min(1),
+        authToken: z.string().optional(),
+        data: z.record(z.unknown())
+      }
+    },
+    async ({ resource, id, authToken, data }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows/${encodeURIComponent(id)}`, authToken, {
+        method: "PATCH",
+        body: JSON.stringify(data)
+      })
+  );
+
+  server.registerTool(
+    "delete_row",
+    {
+      description: "Delete one row from a Backforge resource by id.",
+      inputSchema: {
+        resource: z.string().min(1),
+        id: z.string().min(1),
+        authToken: z.string().optional()
+      }
+    },
+    async ({ resource, id, authToken }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows/${encodeURIComponent(id)}`, authToken, {
+        method: "DELETE"
+      })
+  );
 }

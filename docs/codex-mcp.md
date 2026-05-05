@@ -53,7 +53,10 @@ The agent should not write SQL manually for this flow.
 - `list_resources`
 - `describe_resource`
 - `create_resource`
+- `delete_resource`
 - `add_field`
+- `update_field`
+- `delete_field`
 - `add_index`
 - `list_rows`
 - `insert_row`
@@ -61,3 +64,7 @@ The agent should not write SQL manually for this flow.
 - `update_row`
 - `delete_row`
 - `describe_auth_config`
+- `sign_up`
+- `sign_in`
+- `get_current_user`
+- `sign_out`

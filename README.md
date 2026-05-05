@@ -86,6 +86,20 @@ curl -X POST http://localhost:4000/resources/companies/fields \
   -d '{"name":"rating","type":"integer","required":true,"defaultValue":0,"indexed":true}'
 ```
 
+Rename or update a field:
+
+```bash
+curl -X PATCH http://localhost:4000/resources/companies/fields/description \
+  -H "Content-Type: application/json" \
+  -d '{"name":"summary","defaultValue":"", "indexed":true}'
+```
+
+Delete a field:
+
+```bash
+curl -X DELETE http://localhost:4000/resources/companies/fields/summary
+```
+
 Add an index to an existing field:
 
 ```bash
@@ -98,6 +112,15 @@ Filter listed rows:
 
 ```bash
 curl 'http://localhost:4000/resources/companies/rows?where[active]=true'
+curl 'http://localhost:4000/resources/companies/rows?where[name][contains]=acme&orderBy=created_at&orderDirection=desc&limit=25&offset=0'
+```
+
+Supported filter operators are `eq`, `ne`, `contains`, `gt`, `gte`, `lt`, `lte`, and `isNull`. The shorthand `where[field]=value` is equivalent to `where[field][eq]=value`.
+
+Delete a resource:
+
+```bash
+curl -X DELETE http://localhost:4000/resources/companies
 ```
 
 Create a user and save the bearer token:
@@ -162,7 +185,7 @@ Example MCP config:
 }
 ```
 
-Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `add_field`, `add_index`, `list_rows`, `insert_row`, `get_row`, `update_row`, and `delete_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior.
+Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `delete_resource`, `add_field`, `update_field`, `delete_field`, `add_index`, `list_rows`, `insert_row`, `get_row`, `update_row`, and `delete_row` over stdio. They can also call `describe_auth_config`, `sign_up`, `sign_in`, `get_current_user`, and `sign_out` for auth behavior.
 
 For this checkout, replace `/absolute/path/to/localbase` with the absolute path to your repository checkout.
 
@@ -195,10 +218,18 @@ await localbase.resources.create({
 await localbase.resources.list();
 await localbase.resources.describe("todos");
 await localbase.resources.addField("todos", { name: "priority", type: "integer", defaultValue: 0 });
+await localbase.resources.updateField("todos", "priority", { indexed: true });
 await localbase.resources.addIndex("todos", "priority");
 await localbase.resources.rows("todos").insert({ title: "Ship auth" });
-await localbase.resources.rows("todos").list({ where: { priority: 0 } });
+await localbase.resources.rows("todos").list({
+  where: { priority: { gte: 0 }, title: { contains: "Ship" } },
+  limit: 25,
+  orderBy: "created_at",
+  orderDirection: "desc"
+});
 await localbase.resources.rows("todos").get("row-id");
 await localbase.resources.rows("todos").update("row-id", { done: true });
 await localbase.resources.rows("todos").delete("row-id");
+await localbase.resources.deleteField("todos", "priority");
+await localbase.resources.delete("todos");
 ```

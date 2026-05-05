@@ -13,7 +13,7 @@ const server = new McpServer({
 });
 
 registerResourceTools(server, apiBaseUrl);
-registerAuthTools(server);
+registerAuthTools(server, apiBaseUrl);
 registerBackendSummaryTool(server, apiBaseUrl);
 
 const transport = new StdioServerTransport();

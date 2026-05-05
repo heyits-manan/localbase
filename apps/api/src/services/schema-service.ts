@@ -4,12 +4,14 @@ import type {
   CreateResourceInput,
   FieldType,
   LocalbaseField,
-  LocalbaseResource
+  LocalbaseResource,
+  UpdateResourceFieldInput
 } from "@localbase/shared";
 import {
   addResourceFieldInputSchema,
   addResourceIndexInputSchema,
-  createResourceInputSchema
+  createResourceInputSchema,
+  updateResourceFieldInputSchema
 } from "@localbase/shared";
 import { and, eq } from "drizzle-orm";
 import { db, pool } from "../db/client.js";
@@ -166,6 +168,15 @@ async function createFieldIndex(
   );
 }
 
+async function dropFieldIndex(
+  client: Pick<typeof pool, "query">,
+  resourceName: string,
+  fieldName: string
+): Promise<void> {
+  const indexName = `${resourceName}_${fieldName}_idx`;
+  await client.query(`DROP INDEX IF EXISTS ${quoteIdentifier(indexName)}`);
+}
+
 function getStorageFields(input: CreateResourceInput): StorageFieldInput[] {
   const userFields = validateResourceFields(input.fields);
   return [
@@ -283,6 +294,26 @@ export async function createResource(input: CreateResourceInput): Promise<Localb
   }
 }
 
+export async function deleteResource(resourceName: string): Promise<{ ok: true }> {
+  const safeResourceName = assertSafeTableName(resourceName);
+  const resource = await describeResource(safeResourceName);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    await client.query(`DROP TABLE ${quoteIdentifier(safeResourceName)}`);
+    await client.query("DELETE FROM forge_columns WHERE table_id = $1", [resource.id]);
+    await client.query("DELETE FROM forge_tables WHERE id = $1", [resource.id]);
+    await client.query("COMMIT");
+    return { ok: true };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function addResourceField(resourceName: string, input: AddResourceFieldInput): Promise<LocalbaseResource> {
   const safeResourceName = assertSafeTableName(resourceName);
   const parsed = addResourceFieldInputSchema.parse(input);
@@ -372,6 +403,133 @@ export async function addResourceIndex(resourceName: string, input: AddResourceI
         .where(and(eq(forgeColumns.tableId, resource.id), eq(forgeColumns.columnName, fieldName)));
       return describeResource(safeResourceName);
     }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateResourceField(
+  resourceName: string,
+  fieldName: string,
+  input: UpdateResourceFieldInput
+): Promise<LocalbaseResource> {
+  const safeResourceName = assertSafeTableName(resourceName);
+  const safeFieldName = validateResourceFieldName(fieldName);
+  const parsed = updateResourceFieldInputSchema.parse(input);
+  const resource = await describeResource(safeResourceName);
+  const field = resource.fields?.find((candidate) => candidate.name === safeFieldName);
+  if (!field) {
+    throw new ServiceError(`Unknown field: ${safeFieldName}`, 404);
+  }
+
+  const nextFieldName = parsed.name === undefined ? safeFieldName : validateResourceFieldName(parsed.name);
+  if (nextFieldName !== safeFieldName && resource.fields?.some((candidate) => candidate.name === nextFieldName)) {
+    throw new ServiceError(`Field already exists: ${nextFieldName}`, 409);
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    if (nextFieldName !== safeFieldName) {
+      await client.query(
+        `ALTER TABLE ${quoteIdentifier(safeResourceName)} RENAME COLUMN ${quoteIdentifier(
+          safeFieldName
+        )} TO ${quoteIdentifier(nextFieldName)}`
+      );
+      await client.query("UPDATE forge_columns SET column_name = $1 WHERE table_id = $2 AND column_name = $3", [
+        nextFieldName,
+        resource.id,
+        safeFieldName
+      ]);
+      if (field.isIndexed && !field.isUnique) {
+        await dropFieldIndex(client, safeResourceName, safeFieldName);
+        await createFieldIndex(client, safeResourceName, nextFieldName);
+      }
+    }
+
+    if (parsed.required !== undefined && parsed.required !== field.required) {
+      await client.query(
+        `ALTER TABLE ${quoteIdentifier(safeResourceName)} ALTER COLUMN ${quoteIdentifier(nextFieldName)} ${
+          parsed.required ? "SET" : "DROP"
+        } NOT NULL`
+      );
+      await client.query("UPDATE forge_columns SET nullable = $1 WHERE table_id = $2 AND column_name = $3", [
+        !parsed.required,
+        resource.id,
+        nextFieldName
+      ]);
+    }
+
+    if ("defaultValue" in parsed) {
+      const defaultSql =
+        parsed.defaultValue === null
+          ? "DROP DEFAULT"
+          : `SET DEFAULT ${toSqlLiteral(field.type, parsed.defaultValue as string | number | boolean)}`;
+      await client.query(
+        `ALTER TABLE ${quoteIdentifier(safeResourceName)} ALTER COLUMN ${quoteIdentifier(nextFieldName)} ${defaultSql}`
+      );
+      await client.query("UPDATE forge_columns SET default_value = $1 WHERE table_id = $2 AND column_name = $3", [
+        parsed.defaultValue === undefined || parsed.defaultValue === null ? null : String(parsed.defaultValue),
+        resource.id,
+        nextFieldName
+      ]);
+    }
+
+    if (parsed.indexed !== undefined && parsed.indexed !== field.isIndexed) {
+      if (field.isUnique) {
+        throw new ServiceError(`Unique field index cannot be changed: ${nextFieldName}`);
+      }
+      if (parsed.indexed) {
+        await createFieldIndex(client, safeResourceName, nextFieldName);
+      } else {
+        await dropFieldIndex(client, safeResourceName, nextFieldName);
+      }
+      await client.query("UPDATE forge_columns SET is_indexed = $1 WHERE table_id = $2 AND column_name = $3", [
+        parsed.indexed,
+        resource.id,
+        nextFieldName
+      ]);
+    }
+
+    await client.query("COMMIT");
+    return describeResource(safeResourceName);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error instanceof Error && "code" in error && error.code === "42701") {
+      throw new ServiceError(`Field already exists: ${nextFieldName}`, 409);
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteResourceField(resourceName: string, fieldName: string): Promise<LocalbaseResource> {
+  const safeResourceName = assertSafeTableName(resourceName);
+  const safeFieldName = validateResourceFieldName(fieldName);
+  const resource = await describeResource(safeResourceName);
+  const field = resource.fields?.find((candidate) => candidate.name === safeFieldName);
+  if (!field) {
+    throw new ServiceError(`Unknown field: ${safeFieldName}`, 404);
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await dropFieldIndex(client, safeResourceName, safeFieldName);
+    await client.query(
+      `ALTER TABLE ${quoteIdentifier(safeResourceName)} DROP COLUMN ${quoteIdentifier(safeFieldName)}`
+    );
+    await client.query("DELETE FROM forge_columns WHERE table_id = $1 AND column_name = $2", [
+      resource.id,
+      safeFieldName
+    ]);
+    await client.query("COMMIT");
+    return describeResource(safeResourceName);
+  } catch (error) {
+    await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();

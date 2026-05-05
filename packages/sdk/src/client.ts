@@ -4,7 +4,8 @@ import type {
   AuthSession,
   AuthUser,
   CreateResourceInput,
-  LocalbaseResource
+  LocalbaseResource,
+  UpdateResourceFieldInput
 } from "@localbase/shared";
 
 export type LocalbaseClientOptions = {
@@ -13,14 +14,52 @@ export type LocalbaseClientOptions = {
 };
 
 type JsonRecord = Record<string, unknown>;
+type RowFilterValue =
+  | string
+  | number
+  | boolean
+  | {
+      eq?: string | number | boolean;
+      ne?: string | number | boolean;
+      contains?: string | number | boolean;
+      gt?: string | number | boolean;
+      gte?: string | number | boolean;
+      lt?: string | number | boolean;
+      lte?: string | number | boolean;
+      isNull?: boolean;
+    };
 type RowListOptions = {
-  where?: Record<string, string | number | boolean>;
+  where?: Record<string, RowFilterValue>;
+  limit?: number;
+  offset?: number;
+  orderBy?: string;
+  orderDirection?: "asc" | "desc";
 };
 
 function buildQuery(options?: RowListOptions): string {
   const params = new URLSearchParams();
   for (const [field, value] of Object.entries(options?.where ?? {})) {
-    params.set(`where[${field}]`, String(value));
+    if (typeof value === "object" && value !== null) {
+      for (const [operator, operatorValue] of Object.entries(value)) {
+        if (operatorValue !== undefined) {
+          params.set(`where[${field}][${operator}]`, String(operatorValue));
+        }
+      }
+    } else {
+      params.set(`where[${field}]`, String(value));
+    }
+  }
+  if (options?.limit !== undefined) {
+    params.set("limit", String(options.limit));
+  }
+  if (options?.offset !== undefined) {
+    params.set("offset", String(options.offset));
+  }
+  if (options?.orderBy !== undefined) {
+    params.set("orderBy", options.orderBy);
+  }
+  if (options?.orderDirection !== undefined) {
+    params.set("orderDirection", options.orderDirection);
   }
 
   const query = params.toString();
@@ -95,11 +134,34 @@ export function createLocalbaseClient(options: LocalbaseClientOptions) {
           method: "POST",
           body: JSON.stringify(data)
         }),
+      delete: (name: string) =>
+        request<{ ok: true }>(baseUrl, `/resources/${encodeURIComponent(name)}`, authToken, {
+          method: "DELETE"
+        }),
       addField: (name: string, data: AddResourceFieldInput) =>
         request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/fields`, authToken, {
           method: "POST",
           body: JSON.stringify(data)
         }),
+      updateField: (name: string, field: string, data: UpdateResourceFieldInput) =>
+        request<LocalbaseResource>(
+          baseUrl,
+          `/resources/${encodeURIComponent(name)}/fields/${encodeURIComponent(field)}`,
+          authToken,
+          {
+            method: "PATCH",
+            body: JSON.stringify(data)
+          }
+        ),
+      deleteField: (name: string, field: string) =>
+        request<LocalbaseResource>(
+          baseUrl,
+          `/resources/${encodeURIComponent(name)}/fields/${encodeURIComponent(field)}`,
+          authToken,
+          {
+            method: "DELETE"
+          }
+        ),
       addIndex: (name: string, field: string) =>
         request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/indexes`, authToken, {
           method: "POST",

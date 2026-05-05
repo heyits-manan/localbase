@@ -25,11 +25,20 @@ export const addResourceIndexInputSchema = z.object({
   field: z.string().min(1)
 });
 
+export const updateResourceFieldInputSchema = z.object({
+  name: z.string().min(1).optional(),
+  required: z.boolean().optional(),
+  defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+  indexed: z.boolean().optional()
+});
+
 export type CreateResourceInput = z.infer<typeof createResourceInputSchema>;
 
 export type AddResourceFieldInput = z.infer<typeof addResourceFieldInputSchema>;
 
 export type AddResourceIndexInput = z.infer<typeof addResourceIndexInputSchema>;
+
+export type UpdateResourceFieldInput = z.infer<typeof updateResourceFieldInputSchema>;
 
 export type LocalbaseField = {
   id: string;

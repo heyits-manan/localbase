@@ -6,7 +6,8 @@ export type {
   AuthUser,
   CreateResourceInput,
   LocalbaseField,
-  LocalbaseResource
+  LocalbaseResource,
+  UpdateResourceFieldInput
 } from "./types.js";
 
 export {
@@ -14,5 +15,6 @@ export {
   addResourceIndexInputSchema,
   createResourceInputSchema,
   fieldTypeSchema,
-  resourceFieldInputSchema
+  resourceFieldInputSchema,
+  updateResourceFieldInputSchema
 } from "./types.js";

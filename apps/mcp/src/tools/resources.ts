@@ -1,5 +1,5 @@
-import type { AddResourceFieldInput, CreateResourceInput } from "@localbase/shared";
-import { createResourceInputSchema, resourceFieldInputSchema } from "@localbase/shared";
+import type { AddResourceFieldInput, CreateResourceInput, UpdateResourceFieldInput } from "@localbase/shared";
+import { createResourceInputSchema, resourceFieldInputSchema, updateResourceFieldInputSchema } from "@localbase/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -26,6 +26,57 @@ async function request(apiBaseUrl: string, path: string, authToken?: string, ini
       }
     ]
   };
+}
+
+const filterValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.object({
+    eq: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    ne: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    contains: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    gt: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    gte: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    lt: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    lte: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    isNull: z.boolean().optional()
+  })
+]);
+
+function buildRowListQuery(input: {
+  where?: Record<string, z.infer<typeof filterValueSchema>>;
+  limit?: number;
+  offset?: number;
+  orderBy?: string;
+  orderDirection?: "asc" | "desc";
+}): string {
+  const params = new URLSearchParams();
+  for (const [field, value] of Object.entries(input.where ?? {})) {
+    if (typeof value === "object" && value !== null) {
+      for (const [operator, operatorValue] of Object.entries(value)) {
+        if (operatorValue !== undefined) {
+          params.set(`where[${field}][${operator}]`, String(operatorValue));
+        }
+      }
+    } else {
+      params.set(`where[${field}]`, String(value));
+    }
+  }
+  if (input.limit !== undefined) {
+    params.set("limit", String(input.limit));
+  }
+  if (input.offset !== undefined) {
+    params.set("offset", String(input.offset));
+  }
+  if (input.orderBy !== undefined) {
+    params.set("orderBy", input.orderBy);
+  }
+  if (input.orderDirection !== undefined) {
+    params.set("orderDirection", input.orderDirection);
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
 export function registerResourceTools(server: McpServer, apiBaseUrl: string): void {
@@ -65,6 +116,20 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   );
 
   server.registerTool(
+    "delete_resource",
+    {
+      description: "Delete a Localbase resource, including its rows and metadata.",
+      inputSchema: {
+        name: z.string().min(1)
+      }
+    },
+    async ({ name }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(name)}`, undefined, {
+        method: "DELETE"
+      })
+  );
+
+  server.registerTool(
     "add_field",
     {
       description: "Add a field to an existing Localbase resource.",
@@ -77,6 +142,38 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields`, undefined, {
         method: "POST",
         body: JSON.stringify(field)
+      })
+  );
+
+  server.registerTool(
+    "update_field",
+    {
+      description: "Rename a field or update its required/default/index metadata.",
+      inputSchema: {
+        resource: z.string().min(1),
+        field: z.string().min(1),
+        ...updateResourceFieldInputSchema.shape
+      }
+    },
+    async ({ resource, field, ...input }: UpdateResourceFieldInput & { resource: string; field: string }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, undefined, {
+        method: "PATCH",
+        body: JSON.stringify(input)
+      })
+  );
+
+  server.registerTool(
+    "delete_field",
+    {
+      description: "Delete a field from a Localbase resource.",
+      inputSchema: {
+        resource: z.string().min(1),
+        field: z.string().min(1)
+      }
+    },
+    async ({ resource, field }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, undefined, {
+        method: "DELETE"
       })
   );
 
@@ -103,17 +200,25 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       inputSchema: {
         resource: z.string().min(1),
         authToken: z.string().optional(),
-        where: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
+        where: z.record(filterValueSchema).optional(),
+        limit: z.number().int().min(1).max(500).optional(),
+        offset: z.number().int().min(0).optional(),
+        orderBy: z.string().optional(),
+        orderDirection: z.enum(["asc", "desc"]).optional()
       }
     },
-    async ({ resource, authToken, where }) => {
-      const params = new URLSearchParams();
-      for (const [field, value] of Object.entries(where ?? {})) {
-        params.set(`where[${field}]`, String(value));
-      }
-      const query = params.toString();
-      return request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows${query ? `?${query}` : ""}`, authToken);
-    }
+    async ({ resource, authToken, where, limit, offset, orderBy, orderDirection }) =>
+      request(
+        apiBaseUrl,
+        `/resources/${encodeURIComponent(resource)}/rows${buildRowListQuery({
+          where,
+          limit,
+          offset,
+          orderBy,
+          orderDirection
+        })}`,
+        authToken
+      )
   );
 
   server.registerTool(

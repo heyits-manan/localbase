@@ -113,6 +113,76 @@ describe("resource row CRUD", () => {
     await request(app).get(`/resources/${name}/rows/${rowId}`).expect(404);
   });
 
+  test("filters, sorts, and paginates listed rows", async () => {
+    const name = resourceName("resource_listing");
+    createdResources.push(name);
+    await request(app)
+      .post("/resources")
+      .send({
+        name,
+        fields: [
+          { name: "title", type: "text", required: true },
+          { name: "priority", type: "integer", defaultValue: 0, indexed: true },
+          { name: "done", type: "boolean", defaultValue: false }
+        ]
+      })
+      .expect(201);
+
+    await request(app).post(`/resources/${name}/rows`).send({ title: "Alpha task", priority: 1 }).expect(201);
+    await request(app).post(`/resources/${name}/rows`).send({ title: "Beta task", priority: 3, done: true }).expect(201);
+    await request(app).post(`/resources/${name}/rows`).send({ title: "Gamma note", priority: 2 }).expect(201);
+
+    const filtered = await request(app)
+      .get(`/resources/${name}/rows`)
+      .query({
+        "where[title][contains]": "task",
+        "where[priority][gte]": "2",
+        orderBy: "priority",
+        orderDirection: "asc"
+      })
+      .expect(200);
+    expect(filtered.body.map((row: { title: string }) => row.title)).toEqual(["Beta task"]);
+
+    const paged = await request(app)
+      .get(`/resources/${name}/rows`)
+      .query({ orderBy: "priority", orderDirection: "asc", limit: "1", offset: "1" })
+      .expect(200);
+    expect(paged.body).toHaveLength(1);
+    expect(paged.body[0]).toMatchObject({ title: "Gamma note", priority: 2 });
+  });
+
+  test("renames, updates, deletes fields, and deletes resources", async () => {
+    const name = resourceName("resource_lifecycle");
+    await createResource(name);
+
+    await request(app)
+      .patch(`/resources/${name}/fields/done`)
+      .send({ name: "is_done", defaultValue: true, indexed: true })
+      .expect(200);
+
+    const renamedInsert = await request(app)
+      .post(`/resources/${name}/rows`)
+      .send({ title: "Renamed field", is_done: false })
+      .expect(201);
+    expect(renamedInsert.body).toMatchObject({ title: "Renamed field", is_done: false });
+    expect(renamedInsert.body).not.toHaveProperty("done");
+
+    const description = await request(app).get(`/resources/${name}`).expect(200);
+    expect(description.body.fields).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "is_done", isIndexed: true, defaultValue: "true" })])
+    );
+
+    await request(app).delete(`/resources/${name}/fields/is_done`).expect(200);
+    const afterDeleteField = await request(app).get(`/resources/${name}`).expect(200);
+    expect(afterDeleteField.body.fields).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "is_done" })])
+    );
+
+    await request(app).delete(`/resources/${name}`).expect(200, { ok: true });
+    await request(app).get(`/resources/${name}`).expect(404);
+    await request(app).post(`/resources/${name}/rows`).send({ title: "Gone" }).expect(404);
+  });
+
   test("rejects unknown and system fields when updating rows", async () => {
     const name = resourceName("resource_validation");
     await createResource(name);

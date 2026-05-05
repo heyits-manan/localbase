@@ -4,9 +4,18 @@ import { describeResource, getRegisteredFields } from "./schema-service.js";
 import { assertSafeColumnName, assertSafeTableName, quoteIdentifier } from "../utils/sql-identifiers.js";
 
 type JsonRecord = Record<string, unknown>;
+type FilterOperator = "eq" | "ne" | "contains" | "gt" | "gte" | "lt" | "lte" | "isNull";
 type Filter = {
   field: string;
+  operator: FilterOperator;
   value: string;
+};
+type ListOptions = {
+  filters: Filter[];
+  limit: number;
+  offset: number;
+  orderBy: string;
+  orderDirection: "ASC" | "DESC";
 };
 
 export type RowListOptions = {
@@ -56,18 +65,97 @@ function getAllowedBodyEntries(body: JsonRecord, allowedFields: Set<string>): Ar
   return entries;
 }
 
-function getFilters(query: Record<string, unknown>, allowedFields: Set<string>): Filter[] {
+function getSingleQueryValue(query: Record<string, unknown>, key: string): string | undefined {
+  const value = query[key];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    throw new Error(`Query parameter cannot be repeated: ${key}`);
+  }
+  if (typeof value !== "string") {
+    throw new Error(`Query parameter must be a string: ${key}`);
+  }
+  return value;
+}
+
+function getIntegerQueryValue(
+  query: Record<string, unknown>,
+  key: string,
+  defaultValue: number,
+  { min, max }: { min: number; max: number }
+): number {
+  const value = getSingleQueryValue(query, key);
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${key} must be an integer between ${min} and ${max}`);
+  }
+  return parsed;
+}
+
+function isAllowedQueryField(field: string, allowedFields: Set<string>): boolean {
+  return allowedFields.has(field) || field === "id" || field === "created_at" || field === "updated_at";
+}
+
+function addFilter(filters: Filter[], allowedFields: Set<string>, fieldName: string, operator: FilterOperator, value: unknown): void {
+  const safeName = assertSafeColumnName(fieldName);
+  if (!isAllowedQueryField(safeName, allowedFields)) {
+    throw new Error(`Unknown filter field: ${safeName}`);
+  }
+  if (Array.isArray(value)) {
+    throw new Error(`Filter field cannot be repeated: ${safeName}`);
+  }
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
+    throw new Error(`Filter value must be a string, number, or boolean: ${safeName}`);
+  }
+
+  filters.push({ field: safeName, operator, value: String(value) });
+}
+
+function addNestedFilters(filters: Filter[], query: Record<string, unknown>, allowedFields: Set<string>): void {
+  const where = query.where;
+  if (where === undefined) {
+    return;
+  }
+  if (typeof where !== "object" || where === null || Array.isArray(where)) {
+    throw new Error("where must be an object");
+  }
+
+  for (const [fieldName, rawValue] of Object.entries(where as Record<string, unknown>)) {
+    if (typeof rawValue === "object" && rawValue !== null && !Array.isArray(rawValue)) {
+      for (const [operator, operatorValue] of Object.entries(rawValue as Record<string, unknown>)) {
+        if (!["eq", "ne", "contains", "gt", "gte", "lt", "lte", "isNull"].includes(operator)) {
+          throw new Error(`Unknown filter operator: ${operator}`);
+        }
+        addFilter(filters, allowedFields, fieldName, operator as FilterOperator, operatorValue);
+      }
+    } else {
+      addFilter(filters, allowedFields, fieldName, "eq", rawValue);
+    }
+  }
+}
+
+function getListOptions(query: Record<string, unknown>, allowedFields: Set<string>): ListOptions {
   const filters: Filter[] = [];
+  addNestedFilters(filters, query, allowedFields);
 
   for (const [key, value] of Object.entries(query)) {
-    const bracketMatch = /^where\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/.exec(key);
-    const fieldName = bracketMatch?.[1];
-    if (!fieldName) {
+    if (!key.startsWith("where[")) {
       continue;
     }
 
+    const bracketMatch = /^where\[([a-zA-Z_][a-zA-Z0-9_]*)\](?:\[(eq|ne|contains|gt|gte|lt|lte|isNull)\])?$/.exec(key);
+    const fieldName = bracketMatch?.[1];
+    if (!fieldName) {
+      throw new Error(`Invalid filter parameter: ${key}`);
+    }
+
     const safeName = assertSafeColumnName(fieldName);
-    if (!allowedFields.has(safeName)) {
+    if (!isAllowedQueryField(safeName, allowedFields)) {
       throw new Error(`Unknown filter field: ${safeName}`);
     }
     if (Array.isArray(value)) {
@@ -77,10 +165,26 @@ function getFilters(query: Record<string, unknown>, allowedFields: Set<string>):
       throw new Error(`Filter value must be a string: ${safeName}`);
     }
 
-    filters.push({ field: safeName, value });
+    filters.push({ field: safeName, operator: (bracketMatch[2] as FilterOperator | undefined) ?? "eq", value });
   }
 
-  return filters;
+  const orderBy = assertSafeColumnName(getSingleQueryValue(query, "orderBy") ?? "created_at");
+  if (!isAllowedQueryField(orderBy, allowedFields)) {
+    throw new Error(`Unknown order field: ${orderBy}`);
+  }
+
+  const orderDirectionInput = (getSingleQueryValue(query, "orderDirection") ?? "desc").toLowerCase();
+  if (orderDirectionInput !== "asc" && orderDirectionInput !== "desc") {
+    throw new Error("orderDirection must be asc or desc");
+  }
+
+  return {
+    filters,
+    limit: getIntegerQueryValue(query, "limit", 100, { min: 1, max: 500 }),
+    offset: getIntegerQueryValue(query, "offset", 0, { min: 0, max: 100000 }),
+    orderBy,
+    orderDirection: orderDirectionInput === "asc" ? "ASC" : "DESC"
+  };
 }
 
 function toWhereSql(filters: Filter[]): { sql: string; values: unknown[] } {
@@ -88,10 +192,38 @@ function toWhereSql(filters: Filter[]): { sql: string; values: unknown[] } {
     return { sql: "", values: [] };
   }
 
-  return {
-    sql: `WHERE ${filters.map((filter, index) => `${quoteIdentifier(filter.field)} = $${index + 1}`).join(" AND ")}`,
-    values: filters.map((filter) => filter.value)
-  };
+  const values: unknown[] = [];
+  const clauses = filters.map((filter) => {
+    if (filter.operator === "isNull") {
+      const normalized = filter.value.toLowerCase();
+      if (normalized !== "true" && normalized !== "false") {
+        throw new Error(`isNull filter must be true or false: ${filter.field}`);
+      }
+      return `${quoteIdentifier(filter.field)} IS ${normalized === "true" ? "" : "NOT "}NULL`;
+    }
+
+    values.push(filter.value);
+    const placeholder = `$${values.length}`;
+    const fieldSql = quoteIdentifier(filter.field);
+    switch (filter.operator) {
+      case "eq":
+        return `${fieldSql} = ${placeholder}`;
+      case "ne":
+        return `${fieldSql} <> ${placeholder}`;
+      case "contains":
+        return `${fieldSql}::text ILIKE '%' || ${placeholder} || '%'`;
+      case "gt":
+        return `${fieldSql} > ${placeholder}`;
+      case "gte":
+        return `${fieldSql} >= ${placeholder}`;
+      case "lt":
+        return `${fieldSql} < ${placeholder}`;
+      case "lte":
+        return `${fieldSql} <= ${placeholder}`;
+    }
+  });
+
+  return { sql: `WHERE ${clauses.join(" AND ")}`, values };
 }
 
 async function getResourceContext(resourceName: string, user?: AuthUser) {
@@ -111,17 +243,18 @@ async function getResourceContext(resourceName: string, user?: AuthUser) {
 
 export async function listResourceRows(resourceName: string, options: RowListOptions): Promise<unknown[]> {
   const context = await getResourceContext(resourceName, options.user);
-  const filters = getFilters(options.query, context.allowedFields);
+  const listOptions = getListOptions(options.query, context.allowedFields);
+  const filters = listOptions.filters;
   if (context.resource.ownedByUser && options.user) {
-    filters.unshift({ field: "user_id", value: options.user.id });
+    filters.unshift({ field: "user_id", operator: "eq", value: options.user.id });
   }
 
   const where = toWhereSql(filters);
-  const values = [...where.values, 100];
+  const values = [...where.values, listOptions.limit, listOptions.offset];
   const result = await pool.query(
-    `SELECT * FROM ${quoteIdentifier(context.resourceName)} ${where.sql} ORDER BY created_at DESC LIMIT $${
-      values.length
-    }`,
+    `SELECT * FROM ${quoteIdentifier(context.resourceName)} ${where.sql} ORDER BY ${quoteIdentifier(
+      listOptions.orderBy
+    )} ${listOptions.orderDirection} LIMIT $${values.length - 1} OFFSET $${values.length}`,
     values
   );
   return result.rows;

@@ -48,10 +48,15 @@ export function registerBackendSummaryTool(server: McpServer, apiBaseUrl: string
                     "list_resources",
                     "describe_resource",
                     "create_resource",
+                    "delete_resource",
                     "add_field",
+                    "update_field",
+                    "delete_field",
                     "add_index",
                     "list_rows",
-                    "insert_row"
+                    "insert_row",
+                    "sign_up",
+                    "sign_in"
                   ]
                 },
                 null,

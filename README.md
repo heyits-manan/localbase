@@ -1,5 +1,8 @@
 # Localbase
 
+[demo.webm](https://github.com/user-attachments/assets/a16494e0-9075-449a-8ead-c95243689839)
+
+
 Localbase is a local-first backend foundation inspired by InsForge. It lets AI coding agents manage PostgreSQL resources through an MCP server, exposes generic CRUD APIs, and includes a minimal email/password auth layer for user-owned data.
 
 ## Requirements

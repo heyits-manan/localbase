@@ -67,6 +67,26 @@ afterAll(async () => {
 });
 
 describe("resource row CRUD", () => {
+  test("describes resources with field vocabulary", async () => {
+    const name = resourceName("resource_fields");
+    await createResource(name);
+
+    const response = await request(app).get(`/resources/${name}`).expect(200);
+    expect(response.body).toMatchObject({
+      name,
+      ownedByUser: false
+    });
+    expect(response.body).not.toHaveProperty("tableName");
+    expect(response.body.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "title", type: "text", required: true }),
+        expect.objectContaining({ name: "done", type: "boolean", required: false })
+      ])
+    );
+    expect(response.body.fields[0]).not.toHaveProperty("columnName");
+    expect(response.body.fields[0]).not.toHaveProperty("columnType");
+  });
+
   test("gets, updates, and deletes a row through the resource routes", async () => {
     const name = resourceName("resource_rows");
     await createResource(name);
@@ -153,5 +173,14 @@ describe("resource row CRUD", () => {
       .delete(`/resources/${name}/rows/${rowId}`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .expect(200, { ok: true });
+  });
+
+  test("does not expose legacy table routes", async () => {
+    await request(app).get("/schema/tables").expect(404);
+    await request(app)
+      .post("/schema/tables")
+      .send({ tableName: resourceName("legacy_schema"), columns: [] })
+      .expect(404);
+    await request(app).get("/api/legacy_resource").expect(404);
   });
 });

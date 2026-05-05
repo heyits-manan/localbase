@@ -123,31 +123,9 @@ export function createLocalbaseClient(options: LocalbaseClientOptions) {
           delete: (id: string) =>
             request<{ ok: true }>(baseUrl, `${path}/${encodeURIComponent(id)}`, authToken, {
               method: "DELETE"
-            })
+          })
         };
       }
-    },
-    from(table: string) {
-      const path = `/api/${encodeURIComponent(table)}`;
-
-      return {
-        select: (options?: RowListOptions) => request<unknown[]>(baseUrl, `${path}${buildQuery(options)}`, authToken),
-        get: (id: string) => request<unknown>(baseUrl, `${path}/${encodeURIComponent(id)}`, authToken),
-        insert: (data: JsonRecord) =>
-          request<unknown>(baseUrl, path, authToken, {
-            method: "POST",
-            body: JSON.stringify(data)
-          }),
-        update: (id: string, data: JsonRecord) =>
-          request<unknown>(baseUrl, `${path}/${encodeURIComponent(id)}`, authToken, {
-            method: "PATCH",
-            body: JSON.stringify(data)
-          }),
-        delete: (id: string) =>
-          request<{ ok: true }>(baseUrl, `${path}/${encodeURIComponent(id)}`, authToken, {
-            method: "DELETE"
-          })
-      };
     }
   };
 }

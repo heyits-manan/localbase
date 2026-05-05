@@ -1,73 +1,55 @@
-export type ColumnType = "text" | "integer" | "boolean" | "timestamp" | "uuid" | "jsonb";
+import { z } from "zod";
 
-export type CreateTableInput = {
-  tableName: string;
-  ownedByUser?: boolean;
-  columns: Array<{
-    name: string;
-    type: ColumnType;
-    nullable?: boolean;
-    unique?: boolean;
-    defaultValue?: string | number | boolean | null;
-    indexed?: boolean;
-  }>;
-};
+export type FieldType = "text" | "integer" | "boolean" | "timestamp" | "uuid" | "jsonb";
 
-export type CreateResourceInput = {
-  name: string;
-  ownedByUser?: boolean;
-  fields: Array<{
-    name: string;
-    type: ColumnType;
-    required?: boolean;
-    unique?: boolean;
-    defaultValue?: string | number | boolean | null;
-    indexed?: boolean;
-  }>;
-};
+export const fieldTypeSchema = z.enum(["text", "integer", "boolean", "timestamp", "uuid", "jsonb"]);
 
-export type AddResourceFieldInput = {
-  name: string;
-  type: ColumnType;
-  required?: boolean;
-  unique?: boolean;
-  defaultValue?: string | number | boolean | null;
-  indexed?: boolean;
-};
+export const resourceFieldInputSchema = z.object({
+  name: z.string().min(1),
+  type: fieldTypeSchema,
+  required: z.boolean().optional(),
+  unique: z.boolean().optional(),
+  defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+  indexed: z.boolean().optional()
+});
 
-export type AddResourceIndexInput = {
-  field: string;
-};
+export const createResourceInputSchema = z.object({
+  name: z.string().min(1),
+  ownedByUser: z.boolean().optional(),
+  fields: z.array(resourceFieldInputSchema).default([])
+});
 
-export type LocalbaseColumn = {
+export const addResourceFieldInputSchema = resourceFieldInputSchema;
+
+export const addResourceIndexInputSchema = z.object({
+  field: z.string().min(1)
+});
+
+export type CreateResourceInput = z.infer<typeof createResourceInputSchema>;
+
+export type AddResourceFieldInput = z.infer<typeof addResourceFieldInputSchema>;
+
+export type AddResourceIndexInput = z.infer<typeof addResourceIndexInputSchema>;
+
+export type LocalbaseField = {
   id: string;
-  tableId: string;
-  columnName: string;
-  columnType: ColumnType;
-  nullable: boolean;
+  resourceId: string;
+  name: string;
+  type: FieldType;
+  required: boolean;
   isUnique: boolean;
   defaultValue: string | null;
   isIndexed: boolean;
   createdAt: string;
 };
 
-export type LocalbaseTable = {
-  id: string;
-  projectId: string;
-  tableName: string;
-  ownedByUser: boolean;
-  createdAt: string;
-  columns?: LocalbaseColumn[];
-};
-
 export type LocalbaseResource = {
   id: string;
   projectId: string;
   name: string;
-  tableName: string;
   ownedByUser: boolean;
   createdAt: string;
-  fields?: LocalbaseColumn[];
+  fields?: LocalbaseField[];
 };
 
 export type AuthUser = {

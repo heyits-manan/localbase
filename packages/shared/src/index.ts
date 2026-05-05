@@ -1,12 +1,18 @@
 export type {
   AddResourceFieldInput,
   AddResourceIndexInput,
-  ColumnType,
+  FieldType,
   AuthSession,
   AuthUser,
   CreateResourceInput,
-  CreateTableInput,
-  LocalbaseColumn,
-  LocalbaseResource,
-  LocalbaseTable
+  LocalbaseField,
+  LocalbaseResource
+} from "./types.js";
+
+export {
+  addResourceFieldInputSchema,
+  addResourceIndexInputSchema,
+  createResourceInputSchema,
+  fieldTypeSchema,
+  resourceFieldInputSchema
 } from "./types.js";

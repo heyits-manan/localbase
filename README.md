@@ -98,7 +98,6 @@ Filter listed rows:
 
 ```bash
 curl 'http://localhost:4000/resources/companies/rows?where[active]=true'
-curl 'http://localhost:4000/api/companies?where[active]=true'
 ```
 
 Create a user and save the bearer token:
@@ -134,24 +133,6 @@ curl http://localhost:4000/resources/todos/rows \
 
 Owned resources automatically add `user_id`, reject client-supplied `user_id`, and only return rows for the authenticated user.
 
-The older table-oriented API remains available:
-
-```bash
-curl -X POST http://localhost:4000/schema/tables \
-  -H "Content-Type: application/json" \
-  -d '{"tableName":"companies","columns":[{"name":"name","type":"text","nullable":false},{"name":"website","type":"text","nullable":true}]}'
-```
-
-Insert and list rows:
-
-```bash
-curl -X POST http://localhost:4000/api/companies \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Acme","website":"https://acme.com"}'
-
-curl http://localhost:4000/api/companies
-```
-
 ## MCP Use
 
 Start the API first, then configure your MCP client to launch the quiet MCP command:
@@ -181,7 +162,7 @@ Example MCP config:
 }
 ```
 
-Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `add_field`, `add_index`, `list_rows`, `insert_row`, `get_row`, `update_row`, and `delete_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`.
+Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `add_field`, `add_index`, `list_rows`, `insert_row`, `get_row`, `update_row`, and `delete_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior.
 
 For this checkout, replace `/absolute/path/to/localbase` with the absolute path to your repository checkout.
 
@@ -220,10 +201,4 @@ await localbase.resources.rows("todos").list({ where: { priority: 0 } });
 await localbase.resources.rows("todos").get("row-id");
 await localbase.resources.rows("todos").update("row-id", { done: true });
 await localbase.resources.rows("todos").delete("row-id");
-
-await localbase.from("companies").select({ where: { active: true } });
-await localbase.from("companies").get("row-id");
-await localbase.from("companies").insert({ name: "Acme" });
-await localbase.from("companies").update("row-id", { name: "Acme Inc" });
-await localbase.from("companies").delete("row-id");
 ```

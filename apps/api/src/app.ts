@@ -2,10 +2,8 @@ import cors from "cors";
 import express, { type ErrorRequestHandler, type Express } from "express";
 import morgan from "morgan";
 import { authRouter } from "./routes/auth.js";
-import { crudRouter } from "./routes/crud.js";
 import { healthRouter } from "./routes/health.js";
 import { resourcesRouter } from "./routes/resources.js";
-import { schemaRouter } from "./routes/schema.js";
 
 export const app: Express = express();
 
@@ -15,9 +13,7 @@ app.use(morgan("dev"));
 
 app.use(healthRouter);
 app.use(authRouter);
-app.use(schemaRouter);
 app.use(resourcesRouter);
-app.use(crudRouter);
 
 const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   const statusCode =

@@ -42,7 +42,7 @@ Expected behavior:
 
 - Codex calls `get_backend_summary`.
 - Codex calls `create_resource`.
-- Localbase creates a real Postgres table and metadata.
+- Localbase creates a real Postgres-backed resource and metadata.
 - Codex calls `list_resources` or `describe_resource` to verify it.
 
 The agent should not write SQL manually for this flow.
@@ -53,6 +53,8 @@ The agent should not write SQL manually for this flow.
 - `list_resources`
 - `describe_resource`
 - `create_resource`
+- `add_field`
+- `add_index`
 - `list_rows`
 - `insert_row`
 - `get_row`

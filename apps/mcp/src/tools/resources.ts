@@ -1,17 +1,7 @@
 import type { AddResourceFieldInput, CreateResourceInput } from "@localbase/shared";
+import { createResourceInputSchema, resourceFieldInputSchema } from "@localbase/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-
-const columnTypeSchema = z.enum(["text", "integer", "boolean", "timestamp", "uuid", "jsonb"]);
-
-const resourceFieldSchema = z.object({
-  name: z.string().min(1),
-  type: columnTypeSchema,
-  required: z.boolean().optional(),
-  unique: z.boolean().optional(),
-  defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
-  indexed: z.boolean().optional()
-});
 
 async function request(apiBaseUrl: string, path: string, authToken?: string, init?: RequestInit) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -64,9 +54,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
     {
       description: "Create a Localbase resource with fields, defaults, uniqueness, and basic indexes.",
       inputSchema: {
-        name: z.string().min(1),
-        ownedByUser: z.boolean().optional(),
-        fields: z.array(resourceFieldSchema).default([])
+        ...createResourceInputSchema.shape
       }
     },
     async (input: CreateResourceInput) =>
@@ -82,12 +70,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       description: "Add a field to an existing Localbase resource.",
       inputSchema: {
         resource: z.string().min(1),
-        name: z.string().min(1),
-        type: columnTypeSchema,
-        required: z.boolean().optional(),
-        unique: z.boolean().optional(),
-        defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
-        indexed: z.boolean().optional()
+        ...resourceFieldInputSchema.shape
       }
     },
     async ({ resource, ...field }: AddResourceFieldInput & { resource: string }) =>

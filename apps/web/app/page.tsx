@@ -15,7 +15,7 @@ const workflow = [
   { label: "Prompt", detail: "Describe the backend resource you want." },
   { label: "MCP tool", detail: "Agent calls create_resource or row tools." },
   { label: "API", detail: "Localbase validates the structured request." },
-  { label: "Postgres", detail: "Real tables, fields, indexes, and metadata." },
+  { label: "Postgres", detail: "Real resources, fields, indexes, and metadata." },
   { label: "CRUD", detail: "Use rows through REST, MCP, or the SDK." }
 ];
 
@@ -133,7 +133,7 @@ export default function Home() {
                 ))}
               </div>
               <div className="rounded-md bg-stone-950 p-4 text-sm text-stone-300">
-                <p className="mb-2 text-stone-100">Generated table</p>
+                <p className="mb-2 text-stone-100">Generated resource</p>
                 <code className="block text-emerald-200">products(id, name, price, in_stock, created_at, updated_at)</code>
               </div>
             </div>

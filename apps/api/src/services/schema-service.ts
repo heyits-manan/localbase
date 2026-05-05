@@ -1,25 +1,25 @@
 import type {
   AddResourceFieldInput,
   AddResourceIndexInput,
-  ColumnType,
   CreateResourceInput,
-  CreateTableInput,
-  LocalbaseColumn,
-  LocalbaseResource,
-  LocalbaseTable
+  FieldType,
+  LocalbaseField,
+  LocalbaseResource
+} from "@localbase/shared";
+import {
+  addResourceFieldInputSchema,
+  addResourceIndexInputSchema,
+  createResourceInputSchema
 } from "@localbase/shared";
 import { and, eq } from "drizzle-orm";
-import { z } from "zod";
 import { db, pool } from "../db/client.js";
 import { ensureDefaultProject, forgeColumns, forgeTables } from "../db/schema/forge.js";
 import { assertSafeColumnName, assertSafeTableName, quoteIdentifier } from "../utils/sql-identifiers.js";
 
-const columnTypes = ["text", "integer", "boolean", "timestamp", "uuid", "jsonb"] as const;
 const reservedPrefixes = ["forge_", "auth_", "storage_"];
-const systemColumns = new Set(["id", "created_at", "updated_at"]);
 const reservedResourceFieldNames = new Set(["id", "user_id", "created_at", "updated_at"]);
 
-const columnTypeSql: Record<ColumnType, string> = {
+const fieldTypeSql: Record<FieldType, string> = {
   text: "TEXT",
   integer: "INTEGER",
   boolean: "BOOLEAN",
@@ -28,52 +28,14 @@ const columnTypeSql: Record<ColumnType, string> = {
   jsonb: "JSONB"
 };
 
-export const createTableInputSchema = z.object({
-  tableName: z.string().min(1),
-  ownedByUser: z.boolean().optional(),
-  columns: z
-    .array(
-      z.object({
-        name: z.string().min(1),
-        type: z.enum(columnTypes),
-        nullable: z.boolean().optional(),
-        unique: z.boolean().optional(),
-        defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
-        indexed: z.boolean().optional()
-      })
-    )
-    .default([])
-});
-
-export const createResourceInputSchema = z.object({
-  name: z.string().min(1),
-  ownedByUser: z.boolean().optional(),
-  fields: z
-    .array(
-      z.object({
-        name: z.string().min(1),
-        type: z.enum(columnTypes),
-        required: z.boolean().optional(),
-        unique: z.boolean().optional(),
-        defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
-        indexed: z.boolean().optional()
-      })
-    )
-    .default([])
-});
-
-export const addResourceFieldInputSchema = z.object({
-  name: z.string().min(1),
-  type: z.enum(columnTypes),
-  required: z.boolean().optional(),
-  unique: z.boolean().optional(),
-  defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
-  indexed: z.boolean().optional()
-});
-
-export const addResourceIndexInputSchema = z.object({
-  field: z.string().min(1)
-});
+type StorageFieldInput = {
+  name: string;
+  type: FieldType;
+  required?: boolean;
+  unique?: boolean;
+  defaultValue?: string | number | boolean | null;
+  indexed?: boolean;
+};
 
 class ServiceError extends Error {
   statusCode: number;
@@ -84,13 +46,13 @@ class ServiceError extends Error {
   }
 }
 
-function toLocalbaseColumn(row: typeof forgeColumns.$inferSelect): LocalbaseColumn {
+function toLocalbaseField(row: typeof forgeColumns.$inferSelect): LocalbaseField {
   return {
     id: row.id,
-    tableId: row.tableId ?? "",
-    columnName: row.columnName,
-    columnType: row.columnType as ColumnType,
-    nullable: row.nullable,
+    resourceId: row.tableId ?? "",
+    name: row.columnName,
+    type: row.columnType as FieldType,
+    required: !row.nullable,
     isUnique: row.isUnique,
     defaultValue: row.defaultValue,
     isIndexed: row.isIndexed,
@@ -98,50 +60,24 @@ function toLocalbaseColumn(row: typeof forgeColumns.$inferSelect): LocalbaseColu
   };
 }
 
-function toLocalbaseTable(row: typeof forgeTables.$inferSelect, columns?: LocalbaseColumn[]): LocalbaseTable {
+function toLocalbaseResource(row: typeof forgeTables.$inferSelect, fields?: LocalbaseField[]): LocalbaseResource {
   return {
     id: row.id,
     projectId: row.projectId ?? "",
-    tableName: row.tableName,
+    name: row.tableName,
     ownedByUser: row.ownedByUser,
     createdAt: row.createdAt.toISOString(),
-    columns
+    fields
   };
 }
 
-function toLocalbaseResource(table: LocalbaseTable): LocalbaseResource {
-  return {
-    id: table.id,
-    projectId: table.projectId,
-    name: table.tableName,
-    tableName: table.tableName,
-    ownedByUser: table.ownedByUser,
-    createdAt: table.createdAt,
-    fields: table.columns
-  };
-}
-
-function validateTableName(tableName: string): string {
-  const safeName = assertSafeTableName(tableName);
+function validateResourceName(resourceName: string): string {
+  const safeName = assertSafeTableName(resourceName);
   if (reservedPrefixes.some((prefix) => safeName.startsWith(prefix))) {
-    throw new ServiceError(`Table name cannot start with reserved prefix: ${safeName}`);
+    throw new ServiceError(`Resource name cannot start with reserved prefix: ${safeName}`);
   }
 
   return safeName;
-}
-
-function validateColumns(input: CreateTableInput): void {
-  const seen = new Set<string>();
-  for (const column of input.columns) {
-    const safeName = assertSafeColumnName(column.name);
-    if (systemColumns.has(safeName)) {
-      throw new ServiceError(`Column name is reserved: ${safeName}`);
-    }
-    if (seen.has(safeName)) {
-      throw new ServiceError(`Duplicate column name: ${safeName}`);
-    }
-    seen.add(safeName);
-  }
 }
 
 function validateResourceFieldName(fieldName: string): string {
@@ -153,7 +89,21 @@ function validateResourceFieldName(fieldName: string): string {
   return safeName;
 }
 
-function toSqlLiteral(type: ColumnType, value: string | number | boolean | null): string {
+function validateResourceFields(fields: StorageFieldInput[]): StorageFieldInput[] {
+  const seen = new Set<string>();
+
+  return fields.map((field) => {
+    const safeName = validateResourceFieldName(field.name);
+    if (seen.has(safeName)) {
+      throw new ServiceError(`Duplicate field name: ${safeName}`);
+    }
+    seen.add(safeName);
+
+    return { ...field, name: safeName };
+  });
+}
+
+function toSqlLiteral(type: FieldType, value: string | number | boolean | null): string {
   if (value === null) {
     return "NULL";
   }
@@ -185,118 +135,82 @@ function toSqlLiteral(type: ColumnType, value: string | number | boolean | null)
   return `'${escaped}'`;
 }
 
-function toColumnSql(column: CreateTableInput["columns"][number]): string {
-  const parts = [quoteIdentifier(column.name), columnTypeSql[column.type]];
-  if (column.nullable === false) {
+function toFieldSql(field: StorageFieldInput): string {
+  const parts = [quoteIdentifier(field.name), fieldTypeSql[field.type]];
+  if (field.required === true) {
     parts.push("NOT NULL");
   }
-  if (column.name === "user_id") {
+  if (field.name === "user_id") {
     parts.push("REFERENCES auth_users(id)");
   }
-  if (column.unique === true) {
+  if (field.unique === true) {
     parts.push("UNIQUE");
   }
-  if (column.defaultValue !== undefined) {
-    if (column.nullable === false && column.defaultValue === null) {
-      throw new ServiceError(`Required column cannot default to null: ${column.name}`);
+  if (field.defaultValue !== undefined) {
+    if (field.required === true && field.defaultValue === null) {
+      throw new ServiceError(`Required field cannot default to null: ${field.name}`);
     }
-    parts.push("DEFAULT", toSqlLiteral(column.type, column.defaultValue));
+    parts.push("DEFAULT", toSqlLiteral(field.type, field.defaultValue));
   }
   return parts.join(" ");
 }
 
-async function createColumnIndex(
+async function createFieldIndex(
   client: Pick<typeof pool, "query">,
-  tableName: string,
-  columnName: string
+  resourceName: string,
+  fieldName: string
 ): Promise<void> {
-  const indexName = `${tableName}_${columnName}_idx`;
+  const indexName = `${resourceName}_${fieldName}_idx`;
   await client.query(
-    `CREATE INDEX ${quoteIdentifier(indexName)} ON ${quoteIdentifier(tableName)} (${quoteIdentifier(columnName)})`
+    `CREATE INDEX ${quoteIdentifier(indexName)} ON ${quoteIdentifier(resourceName)} (${quoteIdentifier(fieldName)})`
   );
 }
 
-function toResourceInput(input: CreateResourceInput): CreateTableInput {
-  const parsed = createResourceInputSchema.parse(input);
-  return {
-    tableName: parsed.name,
-    ...(parsed.ownedByUser === undefined ? {} : { ownedByUser: parsed.ownedByUser }),
-    columns: [
-      ...(parsed.ownedByUser === true
-        ? [
-            {
-              name: "user_id",
-              type: "uuid" as const,
-              nullable: false,
-              indexed: true
-            }
-          ]
-        : []),
-      ...parsed.fields.map((field) => ({
-        name: field.name,
-        type: field.type,
-        nullable: field.required === true ? false : true,
-        ...(field.unique === undefined ? {} : { unique: field.unique }),
-        ...(field.defaultValue === undefined ? {} : { defaultValue: field.defaultValue }),
-        ...(field.indexed === undefined ? {} : { indexed: field.indexed })
-      }))
-    ]
-  };
-}
-
-export async function listTables(): Promise<LocalbaseTable[]> {
-  const rows = await db.select().from(forgeTables);
-  return rows.map((row) => toLocalbaseTable(row));
+function getStorageFields(input: CreateResourceInput): StorageFieldInput[] {
+  const userFields = validateResourceFields(input.fields);
+  return [
+    ...(input.ownedByUser === true
+      ? [
+          {
+            name: "user_id",
+            type: "uuid" as const,
+            required: true,
+            indexed: true
+          }
+        ]
+      : []),
+    ...userFields
+  ];
 }
 
 export async function listResources(): Promise<LocalbaseResource[]> {
-  const tables = await listTables();
-  return tables.map((table) => toLocalbaseResource(table));
+  const rows = await db.select().from(forgeTables);
+  return rows.map((row) => toLocalbaseResource(row));
 }
 
-export async function describeTable(tableName: string): Promise<LocalbaseTable> {
-  const safeName = assertSafeTableName(tableName);
-  const table = await db.select().from(forgeTables).where(eq(forgeTables.tableName, safeName)).limit(1);
-  if (!table[0]) {
-    throw new ServiceError(`Unknown table: ${safeName}`, 404);
+export async function describeResource(resourceName: string): Promise<LocalbaseResource> {
+  const safeName = assertSafeTableName(resourceName);
+  const resource = await db.select().from(forgeTables).where(eq(forgeTables.tableName, safeName)).limit(1);
+  if (!resource[0]) {
+    throw new ServiceError(`Unknown resource: ${safeName}`, 404);
   }
 
-  const columns = await db
+  const fields = await db
     .select()
     .from(forgeColumns)
-    .where(eq(forgeColumns.tableId, table[0].id));
+    .where(eq(forgeColumns.tableId, resource[0].id));
 
-  return toLocalbaseTable(table[0], columns.map((column) => toLocalbaseColumn(column)));
+  return toLocalbaseResource(resource[0], fields.map((field) => toLocalbaseField(field)));
 }
 
-export async function describeResource(name: string): Promise<LocalbaseResource> {
-  return toLocalbaseResource(await describeTable(name));
-}
+export async function createResource(input: CreateResourceInput): Promise<LocalbaseResource> {
+  const parsed = createResourceInputSchema.parse(input);
+  const resourceName = validateResourceName(parsed.name);
+  const fields = getStorageFields(parsed);
 
-export async function createTable(input: CreateTableInput): Promise<LocalbaseTable> {
-  const parsed = createTableInputSchema.parse(input);
-  const tableName = validateTableName(parsed.tableName);
-  const normalizedInput: CreateTableInput = {
-    tableName: parsed.tableName,
-    ...(parsed.ownedByUser === undefined ? {} : { ownedByUser: parsed.ownedByUser }),
-    columns:
-      parsed.ownedByUser === true && !parsed.columns.some((column) => column.name === "user_id")
-        ? [
-            {
-              name: "user_id",
-              type: "uuid",
-              nullable: false,
-              indexed: true
-            },
-            ...parsed.columns
-          ]
-        : parsed.columns
-  };
-  validateColumns(normalizedInput);
-
-  const existing = await db.select().from(forgeTables).where(eq(forgeTables.tableName, tableName)).limit(1);
+  const existing = await db.select().from(forgeTables).where(eq(forgeTables.tableName, resourceName)).limit(1);
   if (existing[0]) {
-    throw new ServiceError(`Table already exists: ${tableName}`, 409);
+    throw new ServiceError(`Resource already exists: ${resourceName}`, 409);
   }
 
   const project = await ensureDefaultProject(db);
@@ -305,13 +219,12 @@ export async function createTable(input: CreateTableInput): Promise<LocalbaseTab
   try {
     await client.query("BEGIN");
 
-    const columnSql = normalizedInput.columns.map((column) => toColumnSql(column));
-
+    const fieldSql = fields.map((field) => toFieldSql(field));
     const createSql = [
-      `CREATE TABLE ${quoteIdentifier(tableName)} (`,
+      `CREATE TABLE ${quoteIdentifier(resourceName)} (`,
       [
         "id UUID PRIMARY KEY DEFAULT gen_random_uuid()",
-        ...columnSql,
+        ...fieldSql,
         "created_at TIMESTAMPTZ DEFAULT now()",
         "updated_at TIMESTAMPTZ DEFAULT now()"
       ].join(", "),
@@ -320,13 +233,13 @@ export async function createTable(input: CreateTableInput): Promise<LocalbaseTab
 
     await client.query(createSql);
 
-    for (const column of normalizedInput.columns) {
-      if (column.indexed === true && column.unique !== true) {
-        await createColumnIndex(client, tableName, column.name);
+    for (const field of fields) {
+      if (field.indexed === true && field.unique !== true) {
+        await createFieldIndex(client, resourceName, field.name);
       }
     }
 
-    const tableResult = await client.query<{
+    const resourceResult = await client.query<{
       id: string;
       project_id: string;
       table_name: string;
@@ -334,35 +247,35 @@ export async function createTable(input: CreateTableInput): Promise<LocalbaseTab
       created_at: Date;
     }>(
       "INSERT INTO forge_tables (project_id, table_name, owned_by_user) VALUES ($1, $2, $3) RETURNING id, project_id, table_name, owned_by_user, created_at",
-      [project.id, tableName, normalizedInput.ownedByUser ?? false]
+      [project.id, resourceName, parsed.ownedByUser ?? false]
     );
 
-    const tableRow = tableResult.rows[0];
-    if (!tableRow) {
-      throw new ServiceError("Failed to store table metadata", 500);
+    const resourceRow = resourceResult.rows[0];
+    if (!resourceRow) {
+      throw new ServiceError("Failed to store resource metadata", 500);
     }
 
-    for (const column of normalizedInput.columns) {
+    for (const field of fields) {
       await client.query(
         "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed) VALUES ($1, $2, $3, $4, $5, $6, $7)",
         [
-          tableRow.id,
-          column.name,
-          column.type,
-          column.nullable ?? true,
-          column.unique ?? false,
-          column.defaultValue === undefined ? null : String(column.defaultValue),
-          column.indexed ?? false
+          resourceRow.id,
+          field.name,
+          field.type,
+          field.required === true ? false : true,
+          field.unique ?? false,
+          field.defaultValue === undefined ? null : String(field.defaultValue),
+          field.indexed ?? false
         ]
       );
     }
 
     await client.query("COMMIT");
-    return describeTable(tableName);
+    return describeResource(resourceName);
   } catch (error) {
     await client.query("ROLLBACK");
     if (error instanceof Error && "code" in error && error.code === "42P07") {
-      throw new ServiceError(`Table already exists: ${tableName}`, 409);
+      throw new ServiceError(`Resource already exists: ${resourceName}`, 409);
     }
     throw error;
   } finally {
@@ -370,60 +283,52 @@ export async function createTable(input: CreateTableInput): Promise<LocalbaseTab
   }
 }
 
-export async function createResource(input: CreateResourceInput): Promise<LocalbaseResource> {
-  return toLocalbaseResource(await createTable(toResourceInput(input)));
-}
-
 export async function addResourceField(resourceName: string, input: AddResourceFieldInput): Promise<LocalbaseResource> {
-  const tableName = assertSafeTableName(resourceName);
+  const safeResourceName = assertSafeTableName(resourceName);
   const parsed = addResourceFieldInputSchema.parse(input);
   const fieldName = validateResourceFieldName(parsed.name);
-  const resource = await describeResource(tableName);
+  const resource = await describeResource(safeResourceName);
   const existingFields = resource.fields ?? [];
-  if (existingFields.some((field) => field.columnName === fieldName)) {
+  if (existingFields.some((field) => field.name === fieldName)) {
     throw new ServiceError(`Field already exists: ${fieldName}`, 409);
   }
 
-  const column = {
-    name: fieldName,
-    type: parsed.type,
-    nullable: parsed.required === true ? false : true,
-    ...(parsed.unique === undefined ? {} : { unique: parsed.unique }),
-    ...(parsed.defaultValue === undefined ? {} : { defaultValue: parsed.defaultValue }),
-    ...(parsed.indexed === undefined ? {} : { indexed: parsed.indexed })
-  } satisfies CreateTableInput["columns"][number];
+  const field = {
+    ...parsed,
+    name: fieldName
+  } satisfies StorageFieldInput;
 
-  if (column.nullable === false && column.defaultValue === undefined) {
+  if (field.required === true && field.defaultValue === undefined) {
     throw new ServiceError(`Required field must include a non-null default value: ${fieldName}`);
   }
-  if (column.nullable === false && column.defaultValue === null) {
+  if (field.required === true && field.defaultValue === null) {
     throw new ServiceError(`Required field cannot default to null: ${fieldName}`);
   }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(`ALTER TABLE ${quoteIdentifier(tableName)} ADD COLUMN ${toColumnSql(column)}`);
+    await client.query(`ALTER TABLE ${quoteIdentifier(safeResourceName)} ADD COLUMN ${toFieldSql(field)}`);
 
-    if (column.indexed === true && column.unique !== true) {
-      await createColumnIndex(client, tableName, column.name);
+    if (field.indexed === true && field.unique !== true) {
+      await createFieldIndex(client, safeResourceName, field.name);
     }
 
     await client.query(
       "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed) VALUES ($1, $2, $3, $4, $5, $6, $7)",
       [
         resource.id,
-        column.name,
-        column.type,
-        column.nullable,
-        column.unique ?? false,
-        column.defaultValue === undefined ? null : String(column.defaultValue),
-        column.indexed ?? false
+        field.name,
+        field.type,
+        field.required === true ? false : true,
+        field.unique ?? false,
+        field.defaultValue === undefined ? null : String(field.defaultValue),
+        field.indexed ?? false
       ]
     );
 
     await client.query("COMMIT");
-    return describeResource(tableName);
+    return describeResource(safeResourceName);
   } catch (error) {
     await client.query("ROLLBACK");
     if (error instanceof Error && "code" in error && error.code === "42701") {
@@ -436,11 +341,11 @@ export async function addResourceField(resourceName: string, input: AddResourceF
 }
 
 export async function addResourceIndex(resourceName: string, input: AddResourceIndexInput): Promise<LocalbaseResource> {
-  const tableName = assertSafeTableName(resourceName);
+  const safeResourceName = assertSafeTableName(resourceName);
   const parsed = addResourceIndexInputSchema.parse(input);
   const fieldName = validateResourceFieldName(parsed.field);
-  const resource = await describeResource(tableName);
-  const field = resource.fields?.find((candidate) => candidate.columnName === fieldName);
+  const resource = await describeResource(safeResourceName);
+  const field = resource.fields?.find((candidate) => candidate.name === fieldName);
   if (!field) {
     throw new ServiceError(`Unknown field: ${fieldName}`, 404);
   }
@@ -451,13 +356,13 @@ export async function addResourceIndex(resourceName: string, input: AddResourceI
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await createColumnIndex(client, tableName, fieldName);
+    await createFieldIndex(client, safeResourceName, fieldName);
     await client.query("UPDATE forge_columns SET is_indexed = true WHERE table_id = $1 AND column_name = $2", [
       resource.id,
       fieldName
     ]);
     await client.query("COMMIT");
-    return describeResource(tableName);
+    return describeResource(safeResourceName);
   } catch (error) {
     await client.query("ROLLBACK");
     if (error instanceof Error && "code" in error && error.code === "42P07") {
@@ -465,7 +370,7 @@ export async function addResourceIndex(resourceName: string, input: AddResourceI
         .update(forgeColumns)
         .set({ isIndexed: true })
         .where(and(eq(forgeColumns.tableId, resource.id), eq(forgeColumns.columnName, fieldName)));
-      return describeResource(tableName);
+      return describeResource(safeResourceName);
     }
     throw error;
   } finally {
@@ -473,20 +378,20 @@ export async function addResourceIndex(resourceName: string, input: AddResourceI
   }
 }
 
-export async function getRegisteredColumns(tableName: string): Promise<LocalbaseColumn[]> {
-  const safeName = assertSafeTableName(tableName);
+export async function getRegisteredFields(resourceName: string): Promise<LocalbaseField[]> {
+  const safeName = assertSafeTableName(resourceName);
   const rows = await db
-    .select({ column: forgeColumns })
+    .select({ field: forgeColumns })
     .from(forgeTables)
     .innerJoin(forgeColumns, eq(forgeColumns.tableId, forgeTables.id))
     .where(and(eq(forgeTables.tableName, safeName)));
 
   if (rows.length === 0) {
-    const table = await db.select().from(forgeTables).where(eq(forgeTables.tableName, safeName)).limit(1);
-    if (!table[0]) {
-      throw new ServiceError(`Unknown table: ${safeName}`, 404);
+    const resource = await db.select().from(forgeTables).where(eq(forgeTables.tableName, safeName)).limit(1);
+    if (!resource[0]) {
+      throw new ServiceError(`Unknown resource: ${safeName}`, 404);
     }
   }
 
-  return rows.map((row) => toLocalbaseColumn(row.column));
+  return rows.map((row) => toLocalbaseField(row.field));
 }

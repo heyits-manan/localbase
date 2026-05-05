@@ -38,7 +38,7 @@ export function registerBackendSummaryTool(server: McpServer, apiBaseUrl: string
                     providers: ["email_password"],
                     ownedResources: {
                       enabled: true,
-                      ownershipColumn: "user_id",
+                      ownershipField: "user_id",
                       createWith: { ownedByUser: true }
                     }
                   },

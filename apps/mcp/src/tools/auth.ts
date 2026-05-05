@@ -28,7 +28,7 @@ export function registerAuthTools(server: McpServer): void {
               ownedResources: {
                 enabled: true,
                 createWith: { ownedByUser: true },
-                ownershipColumn: "user_id"
+                ownershipField: "user_id"
               }
             },
             null,

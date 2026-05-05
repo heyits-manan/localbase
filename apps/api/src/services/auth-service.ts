@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import type { AuthSession, AuthUser } from "@backforge/shared";
+import type { AuthSession, AuthUser } from "@localbase/shared";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { authSessions, authUsers } from "../db/schema/forge.js";

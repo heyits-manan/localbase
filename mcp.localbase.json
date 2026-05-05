@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "backforge": {
+    "localbase": {
       "command": "pnpm",
       "args": ["--silent", "mcp"],
-      "cwd": "<absolute-path-to-backforge>",
+      "cwd": "<absolute-path-to-localbase>",
       "env": {
         "API_BASE_URL": "http://localhost:4000"
       }

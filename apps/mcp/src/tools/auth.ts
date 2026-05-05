@@ -4,7 +4,7 @@ export function registerAuthTools(server: McpServer): void {
   server.registerTool(
     "describe_auth_config",
     {
-      description: "Describe the local Backforge authentication configuration.",
+      description: "Describe the local Localbase authentication configuration.",
       inputSchema: {}
     },
     async () => ({

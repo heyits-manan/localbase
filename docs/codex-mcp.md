@@ -1,10 +1,10 @@
-# Backforge MCP With Codex
+# Localbase MCP With Codex
 
-Use this when you want a Codex agent to create Backforge database resources through MCP.
+Use this when you want a Codex agent to create Localbase database resources through MCP.
 
-## 1. Start Backforge
+## 1. Start Localbase
 
-Run these from the Backforge repo root:
+Run these from the Localbase repo root:
 
 ```bash
 docker compose up -d postgres
@@ -16,15 +16,15 @@ Keep the API running at `http://localhost:4000`.
 
 ## 2. Add The MCP Server To Codex
 
-Configure Codex to start Backforge with the quiet MCP command:
+Configure Codex to start Localbase with the quiet MCP command:
 
 ```toml
-[mcp_servers.backforge]
+[mcp_servers.localbase]
 command = "pnpm"
 args = ["--silent", "mcp"]
-cwd = "/media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/backforge"
+cwd = "/absolute/path/to/localbase"
 
-[mcp_servers.backforge.env]
+[mcp_servers.localbase.env]
 API_BASE_URL = "http://localhost:4000"
 ```
 
@@ -35,14 +35,14 @@ The important command is `pnpm --silent mcp`, not `pnpm dev:mcp`. The `--silent`
 Ask Codex:
 
 ```text
-Use the backforge MCP server. Call get_backend_summary, then create a products resource with name text required, price integer required, and in_stock boolean default true. After that, list resources.
+Use the localbase MCP server. Call get_backend_summary, then create a products resource with name text required, price integer required, and in_stock boolean default true. After that, list resources.
 ```
 
 Expected behavior:
 
 - Codex calls `get_backend_summary`.
 - Codex calls `create_resource`.
-- Backforge creates a real Postgres table and metadata.
+- Localbase creates a real Postgres table and metadata.
 - Codex calls `list_resources` or `describe_resource` to verify it.
 
 The agent should not write SQL manually for this flow.

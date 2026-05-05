@@ -1,4 +1,4 @@
-import type { CreateTableInput } from "@backforge/shared";
+import type { CreateTableInput } from "@localbase/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -22,7 +22,7 @@ export function registerCreateTableTool(server: McpServer, apiBaseUrl: string): 
   server.registerTool(
     "create_table",
     {
-      description: "Create a Backforge table.",
+      description: "Create a Localbase table.",
       inputSchema: {
         tableName: z.string().min(1),
         columns: z.array(

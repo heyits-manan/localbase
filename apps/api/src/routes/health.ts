@@ -5,6 +5,6 @@ export const healthRouter: Router = Router();
 healthRouter.get("/health", (_req, res) => {
   res.json({
     ok: true,
-    service: "backforge-api"
+    service: "localbase-api"
   });
 });

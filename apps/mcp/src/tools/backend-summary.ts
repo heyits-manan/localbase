@@ -15,7 +15,7 @@ export function registerBackendSummaryTool(server: McpServer, apiBaseUrl: string
   server.registerTool(
     "get_backend_summary",
     {
-      description: "Summarize the local Backforge backend, API health, auth config, and known resources.",
+      description: "Summarize the local Localbase backend, API health, auth config, and known resources.",
       inputSchema: {}
     },
     async () => {
@@ -63,7 +63,7 @@ export function registerBackendSummaryTool(server: McpServer, apiBaseUrl: string
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         throw new Error(
-          `Backforge API is not reachable at ${apiBaseUrl}. Start it with: docker compose up -d postgres && pnpm db:migrate && pnpm dev:api. Details: ${message}`
+          `Localbase API is not reachable at ${apiBaseUrl}. Start it with: docker compose up -d postgres && pnpm db:migrate && pnpm dev:api. Details: ${message}`
         );
       }
     }

@@ -1,5 +1,5 @@
 {
-  "name": "@backforge/mcp",
+  "name": "@localbase/mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@backforge/shared": "workspace:*",
+    "@localbase/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.4.1",
     "dotenv": "^16.4.7",
     "zod": "^3.24.1"

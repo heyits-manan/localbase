@@ -1,5 +1,5 @@
 {
-  "name": "backforge",
+  "name": "localbase",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.15.4",
@@ -7,14 +7,14 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @backforge/api --filter @backforge/mcp dev",
-    "dev:api": "pnpm --filter @backforge/api dev",
-    "dev:mcp": "pnpm --filter @backforge/mcp dev",
-    "dev:web": "pnpm --filter @backforge/web dev",
-    "mcp": "pnpm --silent --filter @backforge/mcp exec tsx src/index.ts",
-    "db:generate": "pnpm --filter @backforge/api db:generate",
-    "db:migrate": "pnpm --filter @backforge/api db:migrate",
-    "db:studio": "pnpm --filter @backforge/api db:studio",
+    "dev": "pnpm --parallel --filter @localbase/api --filter @localbase/mcp dev",
+    "dev:api": "pnpm --filter @localbase/api dev",
+    "dev:mcp": "pnpm --filter @localbase/mcp dev",
+    "dev:web": "pnpm --filter @localbase/web dev",
+    "mcp": "pnpm --silent --filter @localbase/mcp exec tsx src/index.ts",
+    "db:generate": "pnpm --filter @localbase/api db:generate",
+    "db:migrate": "pnpm --filter @localbase/api db:migrate",
+    "db:studio": "pnpm --filter @localbase/api db:studio",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint"

@@ -1,5 +1,5 @@
 {
-  "name": "@backforge/sdk",
+  "name": "@localbase/sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@backforge/shared": "workspace:*"
+    "@localbase/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

@@ -20,7 +20,7 @@ importers:
 
   apps/api:
     dependencies:
-      '@backforge/shared':
+      '@localbase/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       cors:
@@ -75,7 +75,7 @@ importers:
 
   apps/mcp:
     dependencies:
-      '@backforge/shared':
+      '@localbase/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@modelcontextprotocol/sdk':
@@ -122,7 +122,7 @@ importers:
 
   packages/sdk:
     dependencies:
-      '@backforge/shared':
+      '@localbase/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:

@@ -4,10 +4,10 @@ import type {
   AuthSession,
   AuthUser,
   CreateResourceInput,
-  ForgeResource
-} from "@backforge/shared";
+  LocalbaseResource
+} from "@localbase/shared";
 
-export type BackforgeClientOptions = {
+export type LocalbaseClientOptions = {
   baseUrl: string;
   token?: string;
 };
@@ -52,7 +52,7 @@ async function request<T>(baseUrl: string, path: string, token?: string, init?: 
   return data as T;
 }
 
-export function createBackforgeClient(options: BackforgeClientOptions) {
+export function createLocalbaseClient(options: LocalbaseClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, "");
   let authToken = options.token;
 
@@ -88,20 +88,20 @@ export function createBackforgeClient(options: BackforgeClientOptions) {
       }
     },
     resources: {
-      list: () => request<ForgeResource[]>(baseUrl, "/resources", authToken),
-      describe: (name: string) => request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}`, authToken),
+      list: () => request<LocalbaseResource[]>(baseUrl, "/resources", authToken),
+      describe: (name: string) => request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}`, authToken),
       create: (data: CreateResourceInput) =>
-        request<ForgeResource>(baseUrl, "/resources", authToken, {
+        request<LocalbaseResource>(baseUrl, "/resources", authToken, {
           method: "POST",
           body: JSON.stringify(data)
         }),
       addField: (name: string, data: AddResourceFieldInput) =>
-        request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}/fields`, authToken, {
+        request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/fields`, authToken, {
           method: "POST",
           body: JSON.stringify(data)
         }),
       addIndex: (name: string, field: string) =>
-        request<ForgeResource>(baseUrl, `/resources/${encodeURIComponent(name)}/indexes`, authToken, {
+        request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/indexes`, authToken, {
           method: "POST",
           body: JSON.stringify({ field } satisfies AddResourceIndexInput)
         }),

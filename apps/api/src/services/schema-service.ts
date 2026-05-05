@@ -4,10 +4,10 @@ import type {
   ColumnType,
   CreateResourceInput,
   CreateTableInput,
-  ForgeColumn,
-  ForgeResource,
-  ForgeTable
-} from "@backforge/shared";
+  LocalbaseColumn,
+  LocalbaseResource,
+  LocalbaseTable
+} from "@localbase/shared";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, pool } from "../db/client.js";
@@ -84,7 +84,7 @@ class ServiceError extends Error {
   }
 }
 
-function toForgeColumn(row: typeof forgeColumns.$inferSelect): ForgeColumn {
+function toLocalbaseColumn(row: typeof forgeColumns.$inferSelect): LocalbaseColumn {
   return {
     id: row.id,
     tableId: row.tableId ?? "",
@@ -98,7 +98,7 @@ function toForgeColumn(row: typeof forgeColumns.$inferSelect): ForgeColumn {
   };
 }
 
-function toForgeTable(row: typeof forgeTables.$inferSelect, columns?: ForgeColumn[]): ForgeTable {
+function toLocalbaseTable(row: typeof forgeTables.$inferSelect, columns?: LocalbaseColumn[]): LocalbaseTable {
   return {
     id: row.id,
     projectId: row.projectId ?? "",
@@ -109,7 +109,7 @@ function toForgeTable(row: typeof forgeTables.$inferSelect, columns?: ForgeColum
   };
 }
 
-function toForgeResource(table: ForgeTable): ForgeResource {
+function toLocalbaseResource(table: LocalbaseTable): LocalbaseResource {
   return {
     id: table.id,
     projectId: table.projectId,
@@ -244,17 +244,17 @@ function toResourceInput(input: CreateResourceInput): CreateTableInput {
   };
 }
 
-export async function listTables(): Promise<ForgeTable[]> {
+export async function listTables(): Promise<LocalbaseTable[]> {
   const rows = await db.select().from(forgeTables);
-  return rows.map((row) => toForgeTable(row));
+  return rows.map((row) => toLocalbaseTable(row));
 }
 
-export async function listResources(): Promise<ForgeResource[]> {
+export async function listResources(): Promise<LocalbaseResource[]> {
   const tables = await listTables();
-  return tables.map((table) => toForgeResource(table));
+  return tables.map((table) => toLocalbaseResource(table));
 }
 
-export async function describeTable(tableName: string): Promise<ForgeTable> {
+export async function describeTable(tableName: string): Promise<LocalbaseTable> {
   const safeName = assertSafeTableName(tableName);
   const table = await db.select().from(forgeTables).where(eq(forgeTables.tableName, safeName)).limit(1);
   if (!table[0]) {
@@ -266,14 +266,14 @@ export async function describeTable(tableName: string): Promise<ForgeTable> {
     .from(forgeColumns)
     .where(eq(forgeColumns.tableId, table[0].id));
 
-  return toForgeTable(table[0], columns.map((column) => toForgeColumn(column)));
+  return toLocalbaseTable(table[0], columns.map((column) => toLocalbaseColumn(column)));
 }
 
-export async function describeResource(name: string): Promise<ForgeResource> {
-  return toForgeResource(await describeTable(name));
+export async function describeResource(name: string): Promise<LocalbaseResource> {
+  return toLocalbaseResource(await describeTable(name));
 }
 
-export async function createTable(input: CreateTableInput): Promise<ForgeTable> {
+export async function createTable(input: CreateTableInput): Promise<LocalbaseTable> {
   const parsed = createTableInputSchema.parse(input);
   const tableName = validateTableName(parsed.tableName);
   const normalizedInput: CreateTableInput = {
@@ -370,11 +370,11 @@ export async function createTable(input: CreateTableInput): Promise<ForgeTable> 
   }
 }
 
-export async function createResource(input: CreateResourceInput): Promise<ForgeResource> {
-  return toForgeResource(await createTable(toResourceInput(input)));
+export async function createResource(input: CreateResourceInput): Promise<LocalbaseResource> {
+  return toLocalbaseResource(await createTable(toResourceInput(input)));
 }
 
-export async function addResourceField(resourceName: string, input: AddResourceFieldInput): Promise<ForgeResource> {
+export async function addResourceField(resourceName: string, input: AddResourceFieldInput): Promise<LocalbaseResource> {
   const tableName = assertSafeTableName(resourceName);
   const parsed = addResourceFieldInputSchema.parse(input);
   const fieldName = validateResourceFieldName(parsed.name);
@@ -435,7 +435,7 @@ export async function addResourceField(resourceName: string, input: AddResourceF
   }
 }
 
-export async function addResourceIndex(resourceName: string, input: AddResourceIndexInput): Promise<ForgeResource> {
+export async function addResourceIndex(resourceName: string, input: AddResourceIndexInput): Promise<LocalbaseResource> {
   const tableName = assertSafeTableName(resourceName);
   const parsed = addResourceIndexInputSchema.parse(input);
   const fieldName = validateResourceFieldName(parsed.field);
@@ -473,7 +473,7 @@ export async function addResourceIndex(resourceName: string, input: AddResourceI
   }
 }
 
-export async function getRegisteredColumns(tableName: string): Promise<ForgeColumn[]> {
+export async function getRegisteredColumns(tableName: string): Promise<LocalbaseColumn[]> {
   const safeName = assertSafeTableName(tableName);
   const rows = await db
     .select({ column: forgeColumns })
@@ -488,5 +488,5 @@ export async function getRegisteredColumns(tableName: string): Promise<ForgeColu
     }
   }
 
-  return rows.map((row) => toForgeColumn(row.column));
+  return rows.map((row) => toLocalbaseColumn(row.column));
 }

@@ -1,4 +1,4 @@
-import type { AuthUser } from "@backforge/shared";
+import type { AuthUser } from "@localbase/shared";
 import type { NextFunction, Request, Response } from "express";
 import { getUserForToken } from "../services/auth-service.js";
 

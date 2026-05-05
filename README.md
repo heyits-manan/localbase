@@ -1,6 +1,6 @@
-# Backforge
+# Localbase
 
-Backforge is a local-first backend foundation inspired by InsForge. It lets AI coding agents manage PostgreSQL resources through an MCP server, exposes generic CRUD APIs, and includes a minimal email/password auth layer for user-owned data.
+Localbase is a local-first backend foundation inspired by InsForge. It lets AI coding agents manage PostgreSQL resources through an MCP server, exposes generic CRUD APIs, and includes a minimal email/password auth layer for user-owned data.
 
 ## Requirements
 
@@ -22,7 +22,7 @@ PostgreSQL runs through Docker Compose only. Do not install or configure Postgre
 Copy `.env.example` to `.env` if you want local overrides. The default API database URL is:
 
 ```env
-DATABASE_URL=postgresql://backforge:backforge@localhost:5432/backforge
+DATABASE_URL=postgresql://localbase:localbase@localhost:5432/localbase
 ```
 
 ## Development Commands
@@ -169,10 +169,10 @@ Example MCP config:
 ```json
 {
   "mcpServers": {
-    "backforge": {
+    "localbase": {
       "command": "pnpm",
       "args": ["--silent", "mcp"],
-      "cwd": "/absolute/path/to/backforge",
+      "cwd": "/absolute/path/to/localbase",
       "env": {
         "API_BASE_URL": "http://localhost:4000"
       }
@@ -183,16 +183,12 @@ Example MCP config:
 
 Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `add_field`, `add_index`, `list_rows`, `insert_row`, `get_row`, `update_row`, and `delete_row` over stdio. They can also call `describe_auth_config` to inspect auth behavior. Compatibility table tools are also available: `list_tables`, `describe_table`, and `create_table`.
 
-For this checkout, replace `/absolute/path/to/backforge` with:
-
-```text
-/media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/backforge
-```
+For this checkout, replace `/absolute/path/to/localbase` with the absolute path to your repository checkout.
 
 After connecting the MCP server in Codex, ask the agent:
 
 ```text
-Use the backforge MCP server. Call get_backend_summary, then create a products resource with name text required, price integer required, and in_stock boolean default true.
+Use the localbase MCP server. Call get_backend_summary, then create a products resource with name text required, price integer required, and in_stock boolean default true.
 ```
 
 The agent should call `create_resource`, `add_field`, and `add_index`, not write SQL manually.
@@ -200,14 +196,14 @@ The agent should call `create_resource`, `add_field`, and `add_index`, not write
 ## SDK Example
 
 ```ts
-import { createBackforgeClient } from "@backforge/sdk";
+import { createLocalbaseClient } from "@localbase/sdk";
 
-const forge = createBackforgeClient({ baseUrl: "http://localhost:4000" });
+const localbase = createLocalbaseClient({ baseUrl: "http://localhost:4000" });
 
-await forge.auth.signUp("ada@example.com", "password123");
-await forge.auth.getUser();
+await localbase.auth.signUp("ada@example.com", "password123");
+await localbase.auth.getUser();
 
-await forge.resources.create({
+await localbase.resources.create({
   name: "todos",
   ownedByUser: true,
   fields: [
@@ -215,19 +211,19 @@ await forge.resources.create({
     { name: "done", type: "boolean", defaultValue: false }
   ]
 });
-await forge.resources.list();
-await forge.resources.describe("todos");
-await forge.resources.addField("todos", { name: "priority", type: "integer", defaultValue: 0 });
-await forge.resources.addIndex("todos", "priority");
-await forge.resources.rows("todos").insert({ title: "Ship auth" });
-await forge.resources.rows("todos").list({ where: { priority: 0 } });
-await forge.resources.rows("todos").get("row-id");
-await forge.resources.rows("todos").update("row-id", { done: true });
-await forge.resources.rows("todos").delete("row-id");
+await localbase.resources.list();
+await localbase.resources.describe("todos");
+await localbase.resources.addField("todos", { name: "priority", type: "integer", defaultValue: 0 });
+await localbase.resources.addIndex("todos", "priority");
+await localbase.resources.rows("todos").insert({ title: "Ship auth" });
+await localbase.resources.rows("todos").list({ where: { priority: 0 } });
+await localbase.resources.rows("todos").get("row-id");
+await localbase.resources.rows("todos").update("row-id", { done: true });
+await localbase.resources.rows("todos").delete("row-id");
 
-await forge.from("companies").select({ where: { active: true } });
-await forge.from("companies").get("row-id");
-await forge.from("companies").insert({ name: "Acme" });
-await forge.from("companies").update("row-id", { name: "Acme Inc" });
-await forge.from("companies").delete("row-id");
+await localbase.from("companies").select({ where: { active: true } });
+await localbase.from("companies").get("row-id");
+await localbase.from("companies").insert({ name: "Acme" });
+await localbase.from("companies").update("row-id", { name: "Acme Inc" });
+await localbase.from("companies").delete("row-id");
 ```

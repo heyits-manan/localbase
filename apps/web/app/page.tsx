@@ -1,6 +1,6 @@
 const setupSteps = [
-  "git clone https://github.com/your-org/backforge.git",
-  "cd backforge",
+  "git clone https://github.com/your-org/localbase.git",
+  "cd localbase",
   "pnpm install",
   "docker compose up -d postgres",
   "pnpm db:migrate",
@@ -11,7 +11,7 @@ const setupSteps = [
 const workflow = [
   { label: "Prompt", detail: "Describe the backend resource you want." },
   { label: "MCP tool", detail: "Agent calls create_resource or row tools." },
-  { label: "API", detail: "Backforge validates the structured request." },
+  { label: "API", detail: "Localbase validates the structured request." },
   { label: "Postgres", detail: "Real tables, fields, indexes, and metadata." },
   { label: "CRUD", detail: "Use rows through REST, MCP, or the SDK." }
 ];
@@ -63,7 +63,7 @@ export default function Home() {
       <section className="min-h-[92vh] px-5 py-6 sm:px-8 lg:px-12">
         <nav className="mx-auto flex max-w-7xl items-center justify-between py-2 text-sm text-stone-300">
           <a className="font-semibold text-stone-50" href="#">
-            Backforge
+            Localbase
           </a>
           <div className="flex items-center gap-4">
             <a className="hover:text-stone-50" href="#workflow">
@@ -84,7 +84,7 @@ export default function Home() {
               Local-first backend infrastructure for AI coding agents
             </p>
             <h1 className="max-w-4xl text-5xl font-semibold leading-[1.02] tracking-normal text-stone-50 sm:text-6xl lg:text-7xl">
-              Backforge turns agent prompts into real Postgres-backed APIs.
+              Localbase turns agent prompts into real Postgres-backed APIs.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-stone-300">
               Give your coding agent a backend tool surface. It can create resources, add fields and indexes, manage rows,
@@ -111,7 +111,7 @@ export default function Home() {
             </div>
             <div className="space-y-4">
               <div className="rounded-md border border-stone-800 bg-stone-950 p-4 text-sm leading-7 text-stone-200">
-                Use Backforge. Create a products resource with name text required, price integer required, and in_stock
+                Use Localbase. Create a products resource with name text required, price integer required, and in_stock
                 boolean default true.
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -167,7 +167,7 @@ export default function Home() {
             <p className="text-sm font-semibold uppercase tracking-normal text-emerald-300">Run it today</p>
             <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">Start with the current local setup.</h2>
             <p className="mt-5 leading-8 text-stone-300">
-              Backforge currently runs as a local workspace with Docker Postgres, an Express API, an MCP stdio server, and
+              Localbase currently runs as a local workspace with Docker Postgres, an Express API, an MCP stdio server, and
               a TypeScript SDK.
             </p>
           </div>
@@ -186,7 +186,7 @@ export default function Home() {
             </p>
           </div>
           <pre className="overflow-x-auto rounded-md bg-stone-950 p-5 text-sm leading-7 text-stone-100">
-            <code>npx backforge init</code>
+            <code>npx localbase init</code>
             <code className="block text-stone-500"># upcoming</code>
           </pre>
         </div>

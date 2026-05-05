@@ -6,7 +6,7 @@ export type {
   AuthUser,
   CreateResourceInput,
   CreateTableInput,
-  ForgeColumn,
-  ForgeResource,
-  ForgeTable
+  LocalbaseColumn,
+  LocalbaseResource,
+  LocalbaseTable
 } from "./types.js";

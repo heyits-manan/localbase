@@ -1,4 +1,4 @@
-import type { AddResourceFieldInput, CreateResourceInput } from "@backforge/shared";
+import type { AddResourceFieldInput, CreateResourceInput } from "@localbase/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -42,7 +42,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "list_resources",
     {
-      description: "List known Backforge resources.",
+      description: "List known Localbase resources.",
       inputSchema: {}
     },
     async () => request(apiBaseUrl, "/resources")
@@ -51,7 +51,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "describe_resource",
     {
-      description: "Describe a known Backforge resource.",
+      description: "Describe a known Localbase resource.",
       inputSchema: {
         name: z.string().min(1)
       }
@@ -62,7 +62,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "create_resource",
     {
-      description: "Create a Backforge resource with fields, defaults, uniqueness, and basic indexes.",
+      description: "Create a Localbase resource with fields, defaults, uniqueness, and basic indexes.",
       inputSchema: {
         name: z.string().min(1),
         ownedByUser: z.boolean().optional(),
@@ -79,7 +79,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "add_field",
     {
-      description: "Add a field to an existing Backforge resource.",
+      description: "Add a field to an existing Localbase resource.",
       inputSchema: {
         resource: z.string().min(1),
         name: z.string().min(1),
@@ -100,7 +100,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "add_index",
     {
-      description: "Add an index to an existing Backforge resource field.",
+      description: "Add an index to an existing Localbase resource field.",
       inputSchema: {
         resource: z.string().min(1),
         field: z.string().min(1)
@@ -116,7 +116,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "list_rows",
     {
-      description: "List rows for a Backforge resource.",
+      description: "List rows for a Localbase resource.",
       inputSchema: {
         resource: z.string().min(1),
         authToken: z.string().optional(),
@@ -136,7 +136,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "insert_row",
     {
-      description: "Insert a row into a Backforge resource.",
+      description: "Insert a row into a Localbase resource.",
       inputSchema: {
         resource: z.string().min(1),
         authToken: z.string().optional(),
@@ -153,7 +153,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "get_row",
     {
-      description: "Get one row from a Backforge resource by id.",
+      description: "Get one row from a Localbase resource by id.",
       inputSchema: {
         resource: z.string().min(1),
         id: z.string().min(1),
@@ -167,7 +167,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "update_row",
     {
-      description: "Update one row in a Backforge resource by id.",
+      description: "Update one row in a Localbase resource by id.",
       inputSchema: {
         resource: z.string().min(1),
         id: z.string().min(1),
@@ -185,7 +185,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
   server.registerTool(
     "delete_row",
     {
-      description: "Delete one row from a Backforge resource by id.",
+      description: "Delete one row from a Localbase resource by id.",
       inputSchema: {
         resource: z.string().min(1),
         id: z.string().min(1),

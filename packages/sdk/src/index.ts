@@ -1,2 +1,2 @@
-export { createBackforgeClient } from "./client.js";
-export type { BackforgeClientOptions } from "./client.js";
+export { createLocalbaseClient } from "./client.js";
+export type { LocalbaseClientOptions } from "./client.js";

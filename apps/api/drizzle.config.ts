@@ -6,6 +6,6 @@ export default defineConfig({
   schema: "./src/db/schema/*.ts",
   out: "./src/db/migrations",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgresql://backforge:backforge@localhost:5432/backforge"
+    url: process.env.DATABASE_URL ?? "postgresql://localbase:localbase@localhost:5432/localbase"
   }
 });

@@ -9,7 +9,7 @@ export function registerDescribeTableTool(server: McpServer, apiBaseUrl: string)
   server.registerTool(
     "describe_table",
     {
-      description: "Describe a known Backforge table.",
+      description: "Describe a known Localbase table.",
       inputSchema: {
         tableName: z.string().min(1)
       }

@@ -39,7 +39,7 @@ export type AddResourceIndexInput = {
   field: string;
 };
 
-export type ForgeColumn = {
+export type LocalbaseColumn = {
   id: string;
   tableId: string;
   columnName: string;
@@ -51,23 +51,23 @@ export type ForgeColumn = {
   createdAt: string;
 };
 
-export type ForgeTable = {
+export type LocalbaseTable = {
   id: string;
   projectId: string;
   tableName: string;
   ownedByUser: boolean;
   createdAt: string;
-  columns?: ForgeColumn[];
+  columns?: LocalbaseColumn[];
 };
 
-export type ForgeResource = {
+export type LocalbaseResource = {
   id: string;
   projectId: string;
   name: string;
   tableName: string;
   ownedByUser: boolean;
   createdAt: string;
-  fields?: ForgeColumn[];
+  fields?: LocalbaseColumn[];
 };
 
 export type AuthUser = {

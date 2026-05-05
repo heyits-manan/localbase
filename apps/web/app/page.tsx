@@ -1,5 +1,5 @@
 const setupSteps = [
-  "git clone https://github.com/your-org/localbase.git",
+  "git clone https://github.com/heyits-manan/localbase.git",
   "cd localbase",
   "pnpm install",
   "docker compose up -d postgres",

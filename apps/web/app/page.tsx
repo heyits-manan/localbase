@@ -1,3 +1,6 @@
+import Image from "next/image";
+import logoLocalbase from "./assets/logo_localbase.png";
+
 const setupSteps = [
   "git clone https://github.com/heyits-manan/localbase.git",
   "cd localbase",
@@ -62,8 +65,16 @@ export default function Home() {
     <main>
       <section className="min-h-[92vh] px-5 py-6 sm:px-8 lg:px-12">
         <nav className="mx-auto flex max-w-7xl items-center justify-between py-2 text-sm text-stone-300">
-          <a className="font-semibold text-stone-50" href="#">
-            Localbase
+          <a className="flex items-center gap-3 font-semibold text-stone-50" href="#" aria-label="Localbase home">
+            <Image
+              src={logoLocalbase}
+              alt=""
+              width={36}
+              height={36}
+              priority
+              className="h-9 w-9 rounded-md"
+            />
+            <span>Localbase</span>
           </a>
           <div className="flex items-center gap-4">
             <a className="hover:text-stone-50" href="#workflow">

@@ -50,11 +50,11 @@ The intended packaged workflow is:
 ```bash
 npx @mrace07/localbase init my-backend
 cd my-backend
-npx @mrace07/localbase start
-npx @mrace07/localbase agent codex
+localbase start
+localbase agent codex --install
 ```
 
-`init` only writes the local project files. `start` runs the Docker Compose runtime. `agent codex` prints the MCP command/config that points the agent at the local API.
+`init` only writes the local project files. `start` runs the Docker Compose runtime. `agent codex --install` registers the MCP server with Codex for that project. `localbase doctor` checks Docker access, API health, image availability, and Codex MCP registration.
 
 Published Docker images:
 

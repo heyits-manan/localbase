@@ -120,7 +120,14 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  packages/cli: {}
+  packages/cli:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.4.1
+        version: 1.29.0(zod@3.25.76)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
 
   packages/sdk:
     dependencies:

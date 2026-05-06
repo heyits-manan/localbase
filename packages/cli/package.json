@@ -1,6 +1,6 @@
 {
   "name": "@mrace07/localbase",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Local-first Localbase project initializer and runtime helper.",
   "type": "module",
   "bin": {
@@ -17,5 +17,9 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.4.1",
+    "zod": "^3.24.1"
+  }
 }

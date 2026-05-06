@@ -16,19 +16,8 @@ Keep the API running at `http://localhost:4000`.
 
 ## 2. Add The MCP Server To Codex
 
-Configure Codex to start Localbase with the quiet MCP command:
+codex mcp add localbase --env API_BASE_URL=http://localhost:4000 -- pnpm --dir /media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/localbase --silent mcp
 
-```toml
-[mcp_servers.localbase]
-command = "pnpm"
-args = ["--silent", "mcp"]
-cwd = "/absolute/path/to/localbase"
-
-[mcp_servers.localbase.env]
-API_BASE_URL = "http://localhost:4000"
-```
-
-The important command is `pnpm --silent mcp`, not `pnpm dev:mcp`. The `--silent` flag suppresses package-manager output so stdout is reserved for MCP protocol messages.
 
 ## 3. Test From Codex
 

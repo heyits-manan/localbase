@@ -240,7 +240,7 @@ export default function Home() {
             </p>
           </div>
           <pre className="overflow-x-auto rounded-md bg-stone-950 p-5 text-sm leading-7 text-stone-100">
-            <code>npx localbase init</code>
+            <code>npx @mrace07/localbase init</code>
             <code className="block text-stone-500"># upcoming</code>
           </pre>
         </div>

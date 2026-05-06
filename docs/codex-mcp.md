@@ -16,8 +16,21 @@ Keep the API running at `http://localhost:4000`.
 
 ## 2. Add The MCP Server To Codex
 
-codex mcp add localbase --env API_BASE_URL=http://localhost:4000 -- pnpm --dir /media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/localbase --silent mcp
+Run this as one shell command. The `--silent mcp` arguments must stay on the same command line as `codex mcp add`.
 
+```bash
+codex mcp remove localbase
+codex mcp add localbase --env API_BASE_URL=http://localhost:4000 -- pnpm --dir /media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/localbase --silent mcp
+codex mcp get localbase
+```
+
+The final check should show `pnpm` with these arguments:
+
+```text
+--dir /media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/localbase --silent mcp
+```
+
+If Codex prints `MCP client for localbase failed to start`, fix this command before testing prompts.
 
 ## 3. Test From Codex
 
@@ -35,6 +48,20 @@ Expected behavior:
 - Codex calls `list_resources` or `describe_resource` to verify it.
 
 The agent should not write SQL manually for this flow.
+
+For a broader smoke test after `products` exists, ask Codex:
+
+```text
+Use the localbase MCP server. Create customers, categories, and orders resources for a small store backend. Then create an auth-owned saved_items resource, sign up a test user, insert one saved item with that auth token, and list resources.
+```
+
+Expected resources after the smoke test:
+
+- `products`
+- `customers`
+- `categories`
+- `orders`
+- `saved_items`
 
 ## Available Resource Tools
 

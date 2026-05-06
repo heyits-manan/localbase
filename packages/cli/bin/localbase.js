@@ -11,7 +11,7 @@ const version = packageJson.version;
 const help = `Localbase CLI
 
 Usage:
-  localbase init [directory] [--force] [--with-web] [--api-port <port>] [--web-port <port>] [--image-tag <tag>]
+  localbase init [directory] [--force] [--with-web] [--local-images] [--api-port <port>] [--web-port <port>] [--image-tag <tag>]
   localbase start
   localbase stop
   localbase status
@@ -37,6 +37,7 @@ function parseOptions(args) {
   const options = {
     force: false,
     withWeb: false,
+    localImages: false,
     apiPort: "4000",
     webPort: "3000",
     imageTag: version
@@ -48,6 +49,8 @@ function parseOptions(args) {
       options.force = true;
     } else if (arg === "--with-web") {
       options.withWeb = true;
+    } else if (arg === "--local-images") {
+      options.localImages = true;
     } else if (arg === "--api-port") {
       options.apiPort = requireValue(args, index, arg);
       index += 1;
@@ -152,10 +155,13 @@ function gitignoreTemplate() {
 }
 
 function composeTemplate(options) {
+  const apiImage = imageName("api", options);
+  const mcpImage = imageName("mcp", options);
+  const webImage = imageName("web", options);
   const webService = options.withWeb
     ? `
   web:
-    image: ghcr.io/heyits-manan/localbase-web:\${LOCALBASE_IMAGE_TAG:-${options.imageTag}}
+    image: ${webImage}
     restart: unless-stopped
     depends_on:
       - api
@@ -183,7 +189,7 @@ function composeTemplate(options) {
       retries: 10
 
   api:
-    image: ghcr.io/heyits-manan/localbase-api:\${LOCALBASE_IMAGE_TAG:-${options.imageTag}}
+    image: ${apiImage}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -196,7 +202,7 @@ function composeTemplate(options) {
       - "\${LOCALBASE_API_PORT:-${options.apiPort}}:4000"
 
   mcp:
-    image: ghcr.io/heyits-manan/localbase-mcp:\${LOCALBASE_IMAGE_TAG:-${options.imageTag}}
+    image: ${mcpImage}
     profiles:
       - agent
     depends_on:
@@ -209,12 +215,23 @@ volumes:
 `;
 }
 
+function imageName(service, options) {
+  const tag = `\${LOCALBASE_IMAGE_TAG:-${options.imageTag}}`;
+  if (options.localImages) {
+    return `localbase-${service}:${tag}`;
+  }
+  return `ghcr.io/heyits-manan/localbase-${service}:${tag}`;
+}
+
 function configTemplate(options) {
   return `${JSON.stringify(
     {
       version: 1,
       apiUrl: `http://localhost:${options.apiPort}`,
       imageTag: options.imageTag,
+      images: {
+        local: options.localImages
+      },
       services: {
         web: options.withWeb
       }
@@ -279,7 +296,7 @@ function parseProjectOption(args) {
 function runCompose(args, options = {}) {
   const result = spawnSync("docker", ["compose", ...args], {
     cwd: options.cwd ?? process.cwd(),
-    env: process.env,
+    env: { ...process.env, ...options.env },
     stdio: options.stdio ?? "inherit"
   });
 
@@ -308,7 +325,12 @@ function statusProject() {
 function runMcp(args) {
   const projectDir = parseProjectOption(args);
   ensureProject(projectDir);
-  runCompose(["run", "--rm", "-T", "mcp"], { cwd: projectDir });
+  runCompose(["run", "--rm", "-T", "mcp"], {
+    cwd: projectDir,
+    env: {
+      COMPOSE_PROGRESS: "quiet"
+    }
+  });
 }
 
 function printCodexConfig() {

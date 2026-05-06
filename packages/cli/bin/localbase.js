@@ -220,7 +220,7 @@ function imageName(service, options) {
   if (options.localImages) {
     return `localbase-${service}:${tag}`;
   }
-  return `ghcr.io/heyits-manan/localbase-${service}:${tag}`;
+  return `mananchataut/localbase-${service}:${tag}`;
 }
 
 function configTemplate(options) {

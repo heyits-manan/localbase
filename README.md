@@ -56,6 +56,11 @@ npx @mrace07/localbase agent codex
 
 `init` only writes the local project files. `start` runs the Docker Compose runtime. `agent codex` prints the MCP command/config that points the agent at the local API.
 
+Published Docker images:
+
+- `mananchataut/localbase-api`
+- `mananchataut/localbase-mcp`
+
 ## API Examples
 
 Health check:

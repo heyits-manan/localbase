@@ -7,7 +7,8 @@
     "localbase": "bin/localbase.js"
   },
   "files": [
-    "bin"
+    "bin",
+    "README.md"
   ],
   "scripts": {
     "typecheck": "node --check bin/localbase.js",

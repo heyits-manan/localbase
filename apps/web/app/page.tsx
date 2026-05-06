@@ -233,10 +233,10 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl gap-8 rounded-md border border-stone-300 bg-white p-6 md:grid-cols-[1fr_1.1fr] md:p-8">
           <div>
             <p className="text-sm font-semibold uppercase tracking-normal text-emerald-800">Coming soon</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-normal">The npx installer is the next packaging milestone.</h2>
+            <h2 className="mt-3 text-3xl font-semibold tracking-normal">The npx installer keeps Localbase local-first.</h2>
             <p className="mt-4 leading-7 text-stone-600">
-              The command below is the intended direction, not an available installer yet. The current setup commands above
-              are the source of truth until the CLI package is published.
+              The command below is the intended direction, not an available installer yet. It should bootstrap and run the
+              local Postgres, API, and MCP pieces instead of connecting agents to a hosted API by default.
             </p>
           </div>
           <pre className="overflow-x-auto rounded-md bg-stone-950 p-5 text-sm leading-7 text-stone-100">

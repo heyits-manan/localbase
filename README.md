@@ -39,6 +39,23 @@ DATABASE_URL=postgresql://localbase:localbase@localhost:5432/localbase
 - `pnpm typecheck`: typecheck all workspace packages.
 - `pnpm lint`: run TypeScript checks for this MVP.
 
+## Packaging Direction
+
+Localbase is local-first. The planned `npx localbase init` flow should bootstrap a local workspace and run the local stack: Docker Postgres, the API, and the MCP stdio server. It should not default to a hosted API.
+
+Hosted or managed backends can be added later as an explicit opt-in mode, but the default developer path should keep data and schema operations on the user's machine.
+
+The intended packaged workflow is:
+
+```bash
+npx localbase init my-backend
+cd my-backend
+npx localbase start
+npx localbase agent codex
+```
+
+`init` only writes the local project files. `start` runs the Docker Compose runtime. `agent codex` prints the MCP command/config that points the agent at the local API.
+
 ## API Examples
 
 Health check:

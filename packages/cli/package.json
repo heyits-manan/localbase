@@ -1,0 +1,21 @@
+{
+  "name": "localbase",
+  "version": "0.1.0",
+  "description": "Local-first Localbase project initializer and runtime helper.",
+  "type": "module",
+  "bin": {
+    "localbase": "./bin/localbase.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "scripts": {
+    "typecheck": "node --check bin/localbase.js",
+    "lint": "node --check bin/localbase.js",
+    "test": "node --check bin/localbase.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

@@ -1,5 +1,5 @@
 {
-  "name": "localbase",
+  "name": "localbase-monorepo",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.15.4",
@@ -11,6 +11,7 @@
     "dev:api": "pnpm --filter @localbase/api dev",
     "dev:mcp": "pnpm --filter @localbase/mcp dev",
     "dev:web": "pnpm --filter @localbase/web dev",
+    "cli": "node packages/cli/bin/localbase.js",
     "mcp": "pnpm --silent --filter @localbase/mcp exec tsx src/index.ts",
     "db:generate": "pnpm --filter @localbase/api db:generate",
     "db:migrate": "pnpm --filter @localbase/api db:migrate",

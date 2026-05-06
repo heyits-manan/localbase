@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-localbase}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localbase}
+      POSTGRES_DB: ${POSTGRES_DB:-localbase}
+    ports:
+      - "5432:5432"
+    volumes:
+      - localbase_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-localbase} -d ${POSTGRES_DB:-localbase}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: mananchataut/localbase-api:${LOCALBASE_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://localbase:localbase@postgres:5432/localbase}
+      API_PORT: "4000"
+      API_BASE_URL: http://localhost:${LOCALBASE_API_PORT:-4000}
+    ports:
+      - "${LOCALBASE_API_PORT:-4000}:4000"
+
+  mcp:
+    image: mananchataut/localbase-mcp:${LOCALBASE_IMAGE_TAG:-latest}
+    profiles:
+      - agent
+    depends_on:
+      - api
+    environment:
+      API_BASE_URL: http://api:4000
+
+volumes:
+  localbase_postgres_data:

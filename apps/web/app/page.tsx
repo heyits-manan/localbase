@@ -17,12 +17,6 @@ const oneOffSteps = [
   "localbase start"
 ];
 
-const codexConfigLines = [
-  "codex mcp add localbase \\",
-  "  --env API_BASE_URL=http://localhost:4000 \\",
-  "  -- localbase mcp --project /absolute/path/to/my-backend"
-];
-
 const workflow = [
   { label: "Install", detail: "Install the CLI from npm or run init once through npx." },
   { label: "Start", detail: "Docker Compose starts Postgres and the Localbase API locally." },
@@ -227,27 +221,6 @@ export default function Home() {
             </p>
           </div>
           <CodeBlock lines={quickStartSteps} />
-        </div>
-      </section>
-
-      <section className="bg-stone-950 px-5 py-20 text-stone-50 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.88fr_1fr] lg:items-start">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-normal text-emerald-300">Codex MCP</p>
-            <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">Install the MCP registration from inside the project.</h2>
-            <p className="mt-5 leading-8 text-stone-300">
-              Run the installer once per generated project. Codex then launches the npm package's MCP server directly,
-              pointed at the project and API URL.
-            </p>
-            <div className="mt-6 rounded-md border border-stone-700 bg-stone-900 p-4 text-sm leading-6 text-stone-300">
-              After installing, restart Codex from a shell where <code>docker ps</code> works, then ask it to call
-              <code> get_backend_summary</code>.
-            </div>
-          </div>
-          <div className="space-y-4">
-            <CodeBlock lines={["localbase agent codex --install", "codex mcp get localbase"]} />
-            <CodeBlock lines={codexConfigLines} prompt={false} />
-          </div>
         </div>
       </section>
 

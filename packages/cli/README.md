@@ -95,6 +95,8 @@ Generated projects use Docker images published on Docker Hub:
 - `mananchataut/localbase-api:latest`
 - `mananchataut/localbase-mcp:latest`
 
+Those image tags are published as multi-platform Linux images, so Docker Desktop and Docker Engine pull the right variant automatically on macOS, Windows, and Linux.
+
 The API runs at:
 
 ```text

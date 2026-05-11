@@ -61,6 +61,22 @@ Published Docker images:
 - `mananchataut/localbase-api`
 - `mananchataut/localbase-mcp`
 
+The published `latest` tags must be multi-platform Linux images. Docker will then pull the correct runtime automatically on macOS, Windows, and Linux.
+
+Before publishing the npm package, publish the runtime images:
+
+```bash
+docker login
+pnpm docker:publish
+```
+
+Verify that each published image includes `linux/amd64` and `linux/arm64`:
+
+```bash
+docker buildx imagetools inspect mananchataut/localbase-api:latest
+docker buildx imagetools inspect mananchataut/localbase-mcp:latest
+```
+
 ## API Examples
 
 Health check:

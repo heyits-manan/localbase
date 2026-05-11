@@ -350,6 +350,13 @@ function formatDockerFailure(output) {
     ].join("\n");
   }
 
+  if (/no matching manifest.+linux\/arm64|no match for platform in manifest/i.test(output)) {
+    return [
+      "This Localbase release is missing a Docker image for your CPU architecture.",
+      "Please upgrade after the maintainer publishes corrected multi-platform runtime images."
+    ].join("\n");
+  }
+
   if (/error from registry: denied|pull access denied|insufficient_scope/i.test(output)) {
     return [
       "Docker could not pull one of the Localbase images.",

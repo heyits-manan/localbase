@@ -183,6 +183,61 @@ describe("resource row CRUD", () => {
     await request(app).post(`/resources/${name}/rows`).send({ title: "Gone" }).expect(404);
   });
 
+  test("creates and enforces relationship fields", async () => {
+    const customers = resourceName("relationship_customers");
+    const orders = resourceName("relationship_orders");
+    createdResources.push(customers, orders);
+
+    await request(app)
+      .post("/resources")
+      .send({
+        name: customers,
+        fields: [{ name: "email", type: "text", required: true, unique: true }]
+      })
+      .expect(201);
+
+    await request(app)
+      .post("/resources")
+      .send({
+        name: orders,
+        fields: [{ name: "total", type: "integer", defaultValue: 0 }]
+      })
+      .expect(201);
+
+    const relationship = await request(app)
+      .post(`/resources/${orders}/relationships`)
+      .send({
+        field: "customer_id",
+        references: { resource: customers }
+      })
+      .expect(200);
+    expect(relationship.body.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "customer_id",
+          type: "uuid",
+          isIndexed: true,
+          references: { resource: customers, field: "id", onDelete: "restrict" }
+        })
+      ])
+    );
+
+    const customer = await request(app)
+      .post(`/resources/${customers}/rows`)
+      .send({ email: "relationship@example.com" })
+      .expect(201);
+
+    await request(app)
+      .post(`/resources/${orders}/rows`)
+      .send({ total: 2500, customer_id: customer.body.id })
+      .expect(201);
+
+    await request(app)
+      .post(`/resources/${orders}/rows`)
+      .send({ total: 1000, customer_id: "00000000-0000-0000-0000-000000000000" })
+      .expect(400);
+  });
+
   test("rejects unknown and system fields when updating rows", async () => {
     const name = resourceName("resource_validation");
     await createResource(name);

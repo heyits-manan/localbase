@@ -1,5 +1,15 @@
-import type { AddResourceFieldInput, CreateResourceInput, UpdateResourceFieldInput } from "@localbase/shared";
-import { createResourceInputSchema, resourceFieldInputSchema, updateResourceFieldInputSchema } from "@localbase/shared";
+import type {
+  AddResourceFieldInput,
+  CreateResourceInput,
+  CreateResourceRelationshipInput,
+  UpdateResourceFieldInput
+} from "@localbase/shared";
+import {
+  createResourceInputSchema,
+  createResourceRelationshipInputSchema,
+  resourceFieldInputSchema,
+  updateResourceFieldInputSchema
+} from "@localbase/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -79,7 +89,7 @@ function buildRowListQuery(input: {
   return query ? `?${query}` : "";
 }
 
-export function registerResourceTools(server: McpServer, apiBaseUrl: string): void {
+export function registerResourceTools(server: McpServer, apiBaseUrl: string, adminToken?: string): void {
   server.registerTool(
     "list_resources",
     {
@@ -109,7 +119,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       }
     },
     async (input: CreateResourceInput) =>
-      request(apiBaseUrl, "/resources", undefined, {
+      request(apiBaseUrl, "/resources", adminToken, {
         method: "POST",
         body: JSON.stringify(input)
       })
@@ -124,7 +134,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       }
     },
     async ({ name }) =>
-      request(apiBaseUrl, `/resources/${encodeURIComponent(name)}`, undefined, {
+      request(apiBaseUrl, `/resources/${encodeURIComponent(name)}`, adminToken, {
         method: "DELETE"
       })
   );
@@ -139,7 +149,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       }
     },
     async ({ resource, ...field }: AddResourceFieldInput & { resource: string }) =>
-      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields`, undefined, {
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields`, adminToken, {
         method: "POST",
         body: JSON.stringify(field)
       })
@@ -156,7 +166,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       }
     },
     async ({ resource, field, ...input }: UpdateResourceFieldInput & { resource: string; field: string }) =>
-      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, undefined, {
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, adminToken, {
         method: "PATCH",
         body: JSON.stringify(input)
       })
@@ -172,7 +182,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       }
     },
     async ({ resource, field }) =>
-      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, undefined, {
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, adminToken, {
         method: "DELETE"
       })
   );
@@ -187,9 +197,25 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string): vo
       }
     },
     async ({ resource, field }) =>
-      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/indexes`, undefined, {
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/indexes`, adminToken, {
         method: "POST",
         body: JSON.stringify({ field })
+      })
+  );
+
+  server.registerTool(
+    "create_relationship",
+    {
+      description: "Create a uuid relationship field that references another Localbase resource.",
+      inputSchema: {
+        resource: z.string().min(1),
+        ...createResourceRelationshipInputSchema.shape
+      }
+    },
+    async ({ resource, ...input }: CreateResourceRelationshipInput & { resource: string }) =>
+      request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/relationships`, adminToken, {
+        method: "POST",
+        body: JSON.stringify(input)
       })
   );
 

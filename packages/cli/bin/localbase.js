@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { randomBytes } from "node:crypto";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageJson = JSON.parse(readFileSync(resolve(packageRoot, "package.json"), "utf8"));
@@ -138,10 +139,12 @@ function initProject(args) {
 }
 
 function envTemplate(options) {
+  const adminToken = randomBytes(24).toString("base64url");
   return `LOCALBASE_API_PORT=${options.apiPort}
 LOCALBASE_API_URL=http://localhost:${options.apiPort}
 LOCALBASE_WEB_PORT=${options.webPort}
 LOCALBASE_IMAGE_TAG=${options.imageTag}
+API_ADMIN_TOKEN=${adminToken}
 
 POSTGRES_USER=localbase
 POSTGRES_PASSWORD=localbase
@@ -200,6 +203,7 @@ function composeTemplate(options) {
       DATABASE_URL: \${DATABASE_URL:-postgresql://localbase:localbase@postgres:5432/localbase}
       API_PORT: "4000"
       API_BASE_URL: http://localhost:\${LOCALBASE_API_PORT:-${options.apiPort}}
+      API_ADMIN_TOKEN: \${API_ADMIN_TOKEN}
     ports:
       - "\${LOCALBASE_API_PORT:-${options.apiPort}}:4000"
 
@@ -211,6 +215,7 @@ function composeTemplate(options) {
       - api
     environment:
       API_BASE_URL: http://api:4000
+      API_ADMIN_TOKEN: \${API_ADMIN_TOKEN}
 ${webService}
 volumes:
   localbase_postgres_data:
@@ -418,13 +423,14 @@ function runMcp(args) {
   });
 }
 
-function codexAddArgs(projectDir, apiUrl) {
+function codexAddArgs(projectDir, apiUrl, adminToken) {
   return [
     "mcp",
     "add",
     "localbase",
     "--env",
     `API_BASE_URL=${apiUrl}`,
+    ...(adminToken ? ["--env", `API_ADMIN_TOKEN=${adminToken}`] : []),
     "--",
     "localbase",
     "mcp",
@@ -438,17 +444,22 @@ function printCodexConfig(args = []) {
   ensureProject(projectDir);
   const config = readConfig(projectDir);
   const apiUrl = config.apiUrl ?? "http://localhost:4000";
+  const adminToken = readEnvFile(projectDir).API_ADMIN_TOKEN;
   const install = args.includes("--install");
   const projectArg = shellQuote(projectDir);
 
   if (install) {
-    installCodexMcp(projectDir, apiUrl);
+    installCodexMcp(projectDir, apiUrl, adminToken);
     return;
   }
 
   console.log("Codex CLI command:");
   console.log("");
-  console.log(`codex mcp add localbase --env API_BASE_URL=${apiUrl} -- localbase mcp --project ${projectArg}`);
+  console.log(
+    `codex mcp add localbase --env API_BASE_URL=${apiUrl}${
+      adminToken ? ` --env API_ADMIN_TOKEN=${shellQuote(adminToken)}` : ""
+    } -- localbase mcp --project ${projectArg}`
+  );
   console.log("");
   console.log("Manual config:");
   console.log("");
@@ -458,15 +469,18 @@ function printCodexConfig(args = []) {
   console.log("");
   console.log("[mcp_servers.localbase.env]");
   console.log(`API_BASE_URL = "${apiUrl}"`);
+  if (adminToken) {
+    console.log(`API_ADMIN_TOKEN = "${adminToken}"`);
+  }
 }
 
-function installCodexMcp(projectDir, apiUrl) {
+function installCodexMcp(projectDir, apiUrl, adminToken) {
   const remove = runCommand("codex", ["mcp", "remove", "localbase"]);
   if (remove.error && remove.error.code === "ENOENT") {
     exitWith("Codex CLI was not found. Install Codex, then run this command again.");
   }
 
-  const addArgs = codexAddArgs(projectDir, apiUrl);
+  const addArgs = codexAddArgs(projectDir, apiUrl, adminToken);
   const add = runCommand("codex", addArgs);
   printCommandOutput(add);
 
@@ -592,6 +606,7 @@ function readEnvFile(projectDir = process.cwd()) {
 async function runMcpServer(projectDir) {
   const config = readConfig(projectDir);
   const apiBaseUrl = process.env.API_BASE_URL ?? config.apiUrl ?? "http://localhost:4000";
+  const adminToken = process.env.API_ADMIN_TOKEN ?? readEnvFile(projectDir).API_ADMIN_TOKEN;
   const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
   const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
   const { z } = await import("zod");
@@ -601,13 +616,13 @@ async function runMcpServer(projectDir) {
     version
   });
 
-  registerMcpTools(server, apiBaseUrl, z);
+  registerMcpTools(server, apiBaseUrl, z, adminToken);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-function registerMcpTools(server, apiBaseUrl, z) {
+function registerMcpTools(server, apiBaseUrl, z, adminToken) {
   const fieldTypeSchema = z.enum(["text", "integer", "boolean", "timestamp", "uuid", "jsonb"]);
   const defaultValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
   const resourceFieldInputSchema = z.object({
@@ -616,7 +631,24 @@ function registerMcpTools(server, apiBaseUrl, z) {
     required: z.boolean().optional(),
     unique: z.boolean().optional(),
     defaultValue: defaultValueSchema.optional(),
-    indexed: z.boolean().optional()
+    indexed: z.boolean().optional(),
+    references: z
+      .object({
+        resource: z.string().min(1),
+        field: z.string().min(1).default("id"),
+        onDelete: z.enum(["restrict", "cascade", "set null"]).optional()
+      })
+      .optional()
+  });
+  const createResourceRelationshipInputSchema = z.object({
+    field: z.string().min(1),
+    references: z.object({
+      resource: z.string().min(1),
+      field: z.string().min(1).default("id"),
+      onDelete: z.enum(["restrict", "cascade", "set null"]).default("restrict")
+    }),
+    required: z.boolean().optional(),
+    unique: z.boolean().optional()
   });
   const updateResourceFieldInputSchema = z.object({
     name: z.string().min(1).optional(),
@@ -725,13 +757,14 @@ function registerMcpTools(server, apiBaseUrl, z) {
         fields: z.array(resourceFieldInputSchema).default([])
       }
     },
-    async (input) => request("/resources", undefined, { method: "POST", body: JSON.stringify(input) })
+    async (input) => request("/resources", adminToken, { method: "POST", body: JSON.stringify(input) })
   );
-  server.registerTool("delete_resource", { description: "Delete a Localbase resource, including its rows and metadata.", inputSchema: { name: z.string().min(1) } }, async ({ name }) => request(`/resources/${encodeURIComponent(name)}`, undefined, { method: "DELETE" }));
-  server.registerTool("add_field", { description: "Add a field to an existing Localbase resource.", inputSchema: { resource: z.string().min(1), ...resourceFieldInputSchema.shape } }, async ({ resource, ...field }) => request(`/resources/${encodeURIComponent(resource)}/fields`, undefined, { method: "POST", body: JSON.stringify(field) }));
-  server.registerTool("update_field", { description: "Rename a field or update its required/default/index metadata.", inputSchema: { resource: z.string().min(1), field: z.string().min(1), ...updateResourceFieldInputSchema.shape } }, async ({ resource, field, ...input }) => request(`/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, undefined, { method: "PATCH", body: JSON.stringify(input) }));
-  server.registerTool("delete_field", { description: "Delete a field from a Localbase resource.", inputSchema: { resource: z.string().min(1), field: z.string().min(1) } }, async ({ resource, field }) => request(`/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, undefined, { method: "DELETE" }));
-  server.registerTool("add_index", { description: "Add an index to an existing Localbase resource field.", inputSchema: { resource: z.string().min(1), field: z.string().min(1) } }, async ({ resource, field }) => request(`/resources/${encodeURIComponent(resource)}/indexes`, undefined, { method: "POST", body: JSON.stringify({ field }) }));
+  server.registerTool("delete_resource", { description: "Delete a Localbase resource, including its rows and metadata.", inputSchema: { name: z.string().min(1) } }, async ({ name }) => request(`/resources/${encodeURIComponent(name)}`, adminToken, { method: "DELETE" }));
+  server.registerTool("add_field", { description: "Add a field to an existing Localbase resource.", inputSchema: { resource: z.string().min(1), ...resourceFieldInputSchema.shape } }, async ({ resource, ...field }) => request(`/resources/${encodeURIComponent(resource)}/fields`, adminToken, { method: "POST", body: JSON.stringify(field) }));
+  server.registerTool("update_field", { description: "Rename a field or update its required/default/index metadata.", inputSchema: { resource: z.string().min(1), field: z.string().min(1), ...updateResourceFieldInputSchema.shape } }, async ({ resource, field, ...input }) => request(`/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, adminToken, { method: "PATCH", body: JSON.stringify(input) }));
+  server.registerTool("delete_field", { description: "Delete a field from a Localbase resource.", inputSchema: { resource: z.string().min(1), field: z.string().min(1) } }, async ({ resource, field }) => request(`/resources/${encodeURIComponent(resource)}/fields/${encodeURIComponent(field)}`, adminToken, { method: "DELETE" }));
+  server.registerTool("add_index", { description: "Add an index to an existing Localbase resource field.", inputSchema: { resource: z.string().min(1), field: z.string().min(1) } }, async ({ resource, field }) => request(`/resources/${encodeURIComponent(resource)}/indexes`, adminToken, { method: "POST", body: JSON.stringify({ field }) }));
+  server.registerTool("create_relationship", { description: "Create a uuid relationship field that references another Localbase resource.", inputSchema: { resource: z.string().min(1), ...createResourceRelationshipInputSchema.shape } }, async ({ resource, ...input }) => request(`/resources/${encodeURIComponent(resource)}/relationships`, adminToken, { method: "POST", body: JSON.stringify(input) }));
   server.registerTool(
     "list_rows",
     {

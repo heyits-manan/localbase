@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export type FieldType = "text" | "integer" | "boolean" | "timestamp" | "uuid" | "jsonb";
+export type ReferenceOnDelete = "restrict" | "cascade" | "set null";
 
 export const fieldTypeSchema = z.enum(["text", "integer", "boolean", "timestamp", "uuid", "jsonb"]);
 
@@ -10,7 +11,14 @@ export const resourceFieldInputSchema = z.object({
   required: z.boolean().optional(),
   unique: z.boolean().optional(),
   defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
-  indexed: z.boolean().optional()
+  indexed: z.boolean().optional(),
+  references: z
+    .object({
+      resource: z.string().min(1),
+      field: z.string().min(1).default("id"),
+      onDelete: z.enum(["restrict", "cascade", "set null"]).optional()
+    })
+    .optional()
 });
 
 export const createResourceInputSchema = z.object({
@@ -23,6 +31,17 @@ export const addResourceFieldInputSchema = resourceFieldInputSchema;
 
 export const addResourceIndexInputSchema = z.object({
   field: z.string().min(1)
+});
+
+export const createResourceRelationshipInputSchema = z.object({
+  field: z.string().min(1),
+  references: z.object({
+    resource: z.string().min(1),
+    field: z.string().min(1).default("id"),
+    onDelete: z.enum(["restrict", "cascade", "set null"]).default("restrict")
+  }),
+  required: z.boolean().optional(),
+  unique: z.boolean().optional()
 });
 
 export const updateResourceFieldInputSchema = z.object({
@@ -38,6 +57,8 @@ export type AddResourceFieldInput = z.infer<typeof addResourceFieldInputSchema>;
 
 export type AddResourceIndexInput = z.infer<typeof addResourceIndexInputSchema>;
 
+export type CreateResourceRelationshipInput = z.infer<typeof createResourceRelationshipInputSchema>;
+
 export type UpdateResourceFieldInput = z.infer<typeof updateResourceFieldInputSchema>;
 
 export type LocalbaseField = {
@@ -49,6 +70,11 @@ export type LocalbaseField = {
   isUnique: boolean;
   defaultValue: string | null;
   isIndexed: boolean;
+  references?: {
+    resource: string;
+    field: string;
+    onDelete: ReferenceOnDelete;
+  };
   createdAt: string;
 };
 

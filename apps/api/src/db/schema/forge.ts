@@ -25,6 +25,9 @@ export const forgeColumns = pgTable("forge_columns", {
   isUnique: boolean("is_unique").default(false).notNull(),
   defaultValue: text("default_value"),
   isIndexed: boolean("is_indexed").default(false).notNull(),
+  referenceTable: text("reference_table"),
+  referenceColumn: text("reference_column"),
+  referenceOnDelete: text("reference_on_delete"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 });
 

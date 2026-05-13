@@ -3,6 +3,7 @@ import type {
   AddResourceIndexInput,
   AuthSession,
   AuthUser,
+  CreateResourceRelationshipInput,
   CreateResourceInput,
   LocalbaseResource,
   UpdateResourceFieldInput
@@ -11,6 +12,7 @@ import type {
 export type LocalbaseClientOptions = {
   baseUrl: string;
   token?: string;
+  adminToken?: string;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -94,6 +96,7 @@ async function request<T>(baseUrl: string, path: string, token?: string, init?: 
 export function createLocalbaseClient(options: LocalbaseClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, "");
   let authToken = options.token;
+  let adminToken = options.adminToken;
 
   return {
     auth: {
@@ -127,19 +130,27 @@ export function createLocalbaseClient(options: LocalbaseClientOptions) {
       }
     },
     resources: {
+      setAdminToken: (token: string | undefined) => {
+        adminToken = token;
+      },
       list: () => request<LocalbaseResource[]>(baseUrl, "/resources", authToken),
       describe: (name: string) => request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}`, authToken),
       create: (data: CreateResourceInput) =>
-        request<LocalbaseResource>(baseUrl, "/resources", authToken, {
+        request<LocalbaseResource>(baseUrl, "/resources", adminToken, {
           method: "POST",
           body: JSON.stringify(data)
         }),
       delete: (name: string) =>
-        request<{ ok: true }>(baseUrl, `/resources/${encodeURIComponent(name)}`, authToken, {
+        request<{ ok: true }>(baseUrl, `/resources/${encodeURIComponent(name)}`, adminToken, {
           method: "DELETE"
         }),
       addField: (name: string, data: AddResourceFieldInput) =>
-        request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/fields`, authToken, {
+        request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/fields`, adminToken, {
+          method: "POST",
+          body: JSON.stringify(data)
+        }),
+      createRelationship: (name: string, data: CreateResourceRelationshipInput) =>
+        request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/relationships`, adminToken, {
           method: "POST",
           body: JSON.stringify(data)
         }),
@@ -147,7 +158,7 @@ export function createLocalbaseClient(options: LocalbaseClientOptions) {
         request<LocalbaseResource>(
           baseUrl,
           `/resources/${encodeURIComponent(name)}/fields/${encodeURIComponent(field)}`,
-          authToken,
+          adminToken,
           {
             method: "PATCH",
             body: JSON.stringify(data)
@@ -157,13 +168,13 @@ export function createLocalbaseClient(options: LocalbaseClientOptions) {
         request<LocalbaseResource>(
           baseUrl,
           `/resources/${encodeURIComponent(name)}/fields/${encodeURIComponent(field)}`,
-          authToken,
+          adminToken,
           {
             method: "DELETE"
           }
         ),
       addIndex: (name: string, field: string) =>
-        request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/indexes`, authToken, {
+        request<LocalbaseResource>(baseUrl, `/resources/${encodeURIComponent(name)}/indexes`, adminToken, {
           method: "POST",
           body: JSON.stringify({ field } satisfies AddResourceIndexInput)
         }),

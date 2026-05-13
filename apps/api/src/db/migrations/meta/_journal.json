@@ -22,6 +22,13 @@
       "when": 1777893738207,
       "tag": "0002_thankful_anthem",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777895000000,
+      "tag": "0003_reference_fields",
+      "breakpoints": true
     }
   ]
 }

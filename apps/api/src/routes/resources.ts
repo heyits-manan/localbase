@@ -1,12 +1,13 @@
 import {
   addResourceFieldInputSchema,
   addResourceIndexInputSchema,
+  createResourceRelationshipInputSchema,
   createResourceInputSchema,
   updateResourceFieldInputSchema
 } from "@localbase/shared";
 import { Router } from "express";
 import { z } from "zod";
-import { optionalAuth, type AuthenticatedRequest } from "../middleware/auth.js";
+import { optionalAuth, requireAdmin, type AuthenticatedRequest } from "../middleware/auth.js";
 import {
   deleteResourceRow,
   getResourceRow,
@@ -18,6 +19,7 @@ import {
   addResourceField,
   addResourceIndex,
   createResource,
+  createResourceRelationship,
   deleteResource,
   deleteResourceField,
   describeResource,
@@ -43,7 +45,7 @@ resourcesRouter.get("/resources", async (_req, res, next) => {
   }
 });
 
-resourcesRouter.post("/resources", async (req, res, next) => {
+resourcesRouter.post("/resources", requireAdmin, async (req, res, next) => {
   try {
     const input = createResourceInputSchema.parse(req.body);
     res.status(201).json(await createResource(input));
@@ -62,7 +64,7 @@ resourcesRouter.get("/resources/:name", async (req, res, next) => {
   }
 });
 
-resourcesRouter.delete("/resources/:name", async (req, res, next) => {
+resourcesRouter.delete("/resources/:name", requireAdmin, async (req, res, next) => {
   try {
     res.json(await deleteResource(req.params.name));
   } catch (error) {
@@ -70,7 +72,7 @@ resourcesRouter.delete("/resources/:name", async (req, res, next) => {
   }
 });
 
-resourcesRouter.post("/resources/:name/fields", async (req, res, next) => {
+resourcesRouter.post("/resources/:name/fields", requireAdmin, async (req, res, next) => {
   try {
     const input = addResourceFieldInputSchema.parse(req.body);
     res.json(await addResourceField(req.params.name, input));
@@ -81,7 +83,7 @@ resourcesRouter.post("/resources/:name/fields", async (req, res, next) => {
   }
 });
 
-resourcesRouter.patch("/resources/:name/fields/:field", async (req, res, next) => {
+resourcesRouter.patch("/resources/:name/fields/:field", requireAdmin, async (req, res, next) => {
   try {
     const input = updateResourceFieldInputSchema.parse(req.body);
     res.json(await updateResourceField(req.params.name, req.params.field, input));
@@ -92,7 +94,7 @@ resourcesRouter.patch("/resources/:name/fields/:field", async (req, res, next) =
   }
 });
 
-resourcesRouter.delete("/resources/:name/fields/:field", async (req, res, next) => {
+resourcesRouter.delete("/resources/:name/fields/:field", requireAdmin, async (req, res, next) => {
   try {
     res.json(await deleteResourceField(req.params.name, req.params.field));
   } catch (error) {
@@ -100,10 +102,21 @@ resourcesRouter.delete("/resources/:name/fields/:field", async (req, res, next) 
   }
 });
 
-resourcesRouter.post("/resources/:name/indexes", async (req, res, next) => {
+resourcesRouter.post("/resources/:name/indexes", requireAdmin, async (req, res, next) => {
   try {
     const input = addResourceIndexInputSchema.parse(req.body);
     res.json(await addResourceIndex(req.params.name, input));
+  } catch (error) {
+    if (!handleZodError(error, next)) {
+      next(error);
+    }
+  }
+});
+
+resourcesRouter.post("/resources/:name/relationships", requireAdmin, async (req, res, next) => {
+  try {
+    const input = createResourceRelationshipInputSchema.parse(req.body);
+    res.json(await createResourceRelationship(req.params.name, input));
   } catch (error) {
     if (!handleZodError(error, next)) {
       next(error);

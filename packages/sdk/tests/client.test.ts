@@ -29,15 +29,22 @@ afterEach(() => {
 describe("createLocalbaseClient", () => {
   test("builds resource lifecycle requests", async () => {
     const calls = mockFetch();
-    const client = createLocalbaseClient({ baseUrl: "http://localhost:4000/" });
+    const client = createLocalbaseClient({ baseUrl: "http://localhost:4000/", adminToken: "admin-secret" });
 
     await client.resources.delete("todos");
     await client.resources.updateField("todos", "done", { name: "is_done", indexed: true });
     await client.resources.deleteField("todos", "is_done");
+    await client.resources.createRelationship("orders", {
+      field: "customer_id",
+      references: { resource: "customers", field: "id", onDelete: "cascade" }
+    });
 
     expect(calls[0]).toMatchObject({
       url: "http://localhost:4000/resources/todos",
-      init: expect.objectContaining({ method: "DELETE" })
+      init: expect.objectContaining({
+        method: "DELETE",
+        headers: expect.objectContaining({ Authorization: "Bearer admin-secret" })
+      })
     });
     expect(calls[1]).toMatchObject({
       url: "http://localhost:4000/resources/todos/fields/done",
@@ -46,6 +53,16 @@ describe("createLocalbaseClient", () => {
     expect(calls[2]).toMatchObject({
       url: "http://localhost:4000/resources/todos/fields/is_done",
       init: expect.objectContaining({ method: "DELETE" })
+    });
+    expect(calls[3]).toMatchObject({
+      url: "http://localhost:4000/resources/orders/relationships",
+      init: expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          field: "customer_id",
+          references: { resource: "customers", field: "id", onDelete: "cascade" }
+        })
+      })
     });
   });
 

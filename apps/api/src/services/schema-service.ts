@@ -1,16 +1,19 @@
 import type {
   AddResourceFieldInput,
   AddResourceIndexInput,
+  CreateResourceRelationshipInput,
   CreateResourceInput,
   FieldType,
   LocalbaseField,
   LocalbaseResource,
+  ReferenceOnDelete,
   UpdateResourceFieldInput
 } from "@localbase/shared";
 import {
   addResourceFieldInputSchema,
   addResourceIndexInputSchema,
   createResourceInputSchema,
+  createResourceRelationshipInputSchema,
   updateResourceFieldInputSchema
 } from "@localbase/shared";
 import { and, eq } from "drizzle-orm";
@@ -37,6 +40,11 @@ type StorageFieldInput = {
   unique?: boolean;
   defaultValue?: string | number | boolean | null;
   indexed?: boolean;
+  references?: {
+    resource: string;
+    field?: string;
+    onDelete?: ReferenceOnDelete;
+  };
 };
 
 class ServiceError extends Error {
@@ -58,6 +66,14 @@ function toLocalbaseField(row: typeof forgeColumns.$inferSelect): LocalbaseField
     isUnique: row.isUnique,
     defaultValue: row.defaultValue,
     isIndexed: row.isIndexed,
+    references:
+      row.referenceTable && row.referenceColumn
+        ? {
+            resource: row.referenceTable,
+            field: row.referenceColumn,
+            onDelete: (row.referenceOnDelete as ReferenceOnDelete | null) ?? "restrict"
+          }
+        : undefined,
     createdAt: row.createdAt.toISOString()
   };
 }
@@ -105,6 +121,49 @@ function validateResourceFields(fields: StorageFieldInput[]): StorageFieldInput[
   });
 }
 
+async function validateReference(reference: NonNullable<StorageFieldInput["references"]>) {
+  const resource = assertSafeTableName(reference.resource);
+  const field = assertSafeColumnName(reference.field ?? "id");
+  const onDelete = reference.onDelete ?? "restrict";
+
+  if (!["restrict", "cascade", "set null"].includes(onDelete)) {
+    throw new ServiceError(`Unsupported reference onDelete action: ${onDelete}`);
+  }
+
+  const target = await describeResource(resource);
+  const targetField =
+    field === "id"
+      ? { type: "uuid" }
+      : target.fields?.find((candidate) => candidate.name === field);
+  if (!targetField) {
+    throw new ServiceError(`Unknown reference field: ${resource}.${field}`, 404);
+  }
+  if (targetField.type !== "uuid") {
+    throw new ServiceError(`Reference target must be a uuid field: ${resource}.${field}`);
+  }
+
+  return { resource, field, onDelete };
+}
+
+async function validateReferences(fields: StorageFieldInput[]): Promise<StorageFieldInput[]> {
+  const validated: StorageFieldInput[] = [];
+  for (const field of fields) {
+    if (!field.references) {
+      validated.push(field);
+      continue;
+    }
+    if (field.type !== "uuid") {
+      throw new ServiceError(`Relationship field must use uuid type: ${field.name}`);
+    }
+    const reference = await validateReference(field.references);
+    if (field.required === true && reference.onDelete === "set null") {
+      throw new ServiceError(`Required relationship cannot use onDelete set null: ${field.name}`);
+    }
+    validated.push({ ...field, references: reference, indexed: field.indexed ?? true });
+  }
+  return validated;
+}
+
 function toSqlLiteral(type: FieldType, value: string | number | boolean | null): string {
   if (value === null) {
     return "NULL";
@@ -144,6 +203,18 @@ function toFieldSql(field: StorageFieldInput): string {
   }
   if (field.name === "user_id") {
     parts.push("REFERENCES auth_users(id)");
+  }
+  if (field.references) {
+    const onDeleteSql: Record<ReferenceOnDelete, string> = {
+      restrict: "RESTRICT",
+      cascade: "CASCADE",
+      "set null": "SET NULL"
+    };
+    parts.push(
+      `REFERENCES ${quoteIdentifier(field.references.resource)}(${quoteIdentifier(
+        field.references.field ?? "id"
+      )}) ON DELETE ${onDeleteSql[field.references.onDelete ?? "restrict"]}`
+    );
   }
   if (field.unique === true) {
     parts.push("UNIQUE");
@@ -217,7 +288,7 @@ export async function describeResource(resourceName: string): Promise<LocalbaseR
 export async function createResource(input: CreateResourceInput): Promise<LocalbaseResource> {
   const parsed = createResourceInputSchema.parse(input);
   const resourceName = validateResourceName(parsed.name);
-  const fields = getStorageFields(parsed);
+  const fields = await validateReferences(getStorageFields(parsed));
 
   const existing = await db.select().from(forgeTables).where(eq(forgeTables.tableName, resourceName)).limit(1);
   if (existing[0]) {
@@ -268,7 +339,7 @@ export async function createResource(input: CreateResourceInput): Promise<Localb
 
     for (const field of fields) {
       await client.query(
-        "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed, reference_table, reference_column, reference_on_delete) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         [
           resourceRow.id,
           field.name,
@@ -276,7 +347,10 @@ export async function createResource(input: CreateResourceInput): Promise<Localb
           field.required === true ? false : true,
           field.unique ?? false,
           field.defaultValue === undefined ? null : String(field.defaultValue),
-          field.indexed ?? false
+          field.indexed ?? false,
+          field.references?.resource ?? null,
+          field.references?.field ?? null,
+          field.references?.onDelete ?? null
         ]
       );
     }
@@ -324,10 +398,15 @@ export async function addResourceField(resourceName: string, input: AddResourceF
     throw new ServiceError(`Field already exists: ${fieldName}`, 409);
   }
 
-  const field = {
-    ...parsed,
-    name: fieldName
-  } satisfies StorageFieldInput;
+  const field = (await validateReferences([
+    {
+      ...parsed,
+      name: fieldName
+    }
+  ]))[0];
+  if (!field) {
+    throw new ServiceError("Failed to validate field");
+  }
 
   if (field.required === true && field.defaultValue === undefined) {
     throw new ServiceError(`Required field must include a non-null default value: ${fieldName}`);
@@ -346,7 +425,7 @@ export async function addResourceField(resourceName: string, input: AddResourceF
     }
 
     await client.query(
-      "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      "INSERT INTO forge_columns (table_id, column_name, column_type, nullable, is_unique, default_value, is_indexed, reference_table, reference_column, reference_on_delete) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
       [
         resource.id,
         field.name,
@@ -354,7 +433,10 @@ export async function addResourceField(resourceName: string, input: AddResourceF
         field.required === true ? false : true,
         field.unique ?? false,
         field.defaultValue === undefined ? null : String(field.defaultValue),
-        field.indexed ?? false
+        field.indexed ?? false,
+        field.references?.resource ?? null,
+        field.references?.field ?? null,
+        field.references?.onDelete ?? null
       ]
     );
 
@@ -407,6 +489,21 @@ export async function addResourceIndex(resourceName: string, input: AddResourceI
   } finally {
     client.release();
   }
+}
+
+export async function createResourceRelationship(
+  resourceName: string,
+  input: CreateResourceRelationshipInput
+): Promise<LocalbaseResource> {
+  const parsed = createResourceRelationshipInputSchema.parse(input);
+  return addResourceField(resourceName, {
+    name: parsed.field,
+    type: "uuid",
+    required: parsed.required,
+    unique: parsed.unique,
+    indexed: true,
+    references: parsed.references
+  });
 }
 
 export async function updateResourceField(

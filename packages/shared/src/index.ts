@@ -1,7 +1,9 @@
 export type {
   AddResourceFieldInput,
   AddResourceIndexInput,
+  CreateResourceRelationshipInput,
   FieldType,
+  ReferenceOnDelete,
   AuthSession,
   AuthUser,
   CreateResourceInput,
@@ -13,6 +15,7 @@ export type {
 export {
   addResourceFieldInputSchema,
   addResourceIndexInputSchema,
+  createResourceRelationshipInputSchema,
   createResourceInputSchema,
   fieldTypeSchema,
   resourceFieldInputSchema,

@@ -53,6 +53,7 @@ export function registerBackendSummaryTool(server: McpServer, apiBaseUrl: string
                     "update_field",
                     "delete_field",
                     "add_index",
+                    "create_relationship",
                     "list_rows",
                     "insert_row",
                     "sign_up",

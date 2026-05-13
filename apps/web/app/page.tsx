@@ -1,262 +1,266 @@
 import Image from "next/image";
 import logoLocalbase from "./assets/logo_localbase.png";
 
-const quickStartSteps = [
-  "npm install -g @mrace07/localbase",
-  "localbase init my-backend",
-  "cd my-backend",
-  "localbase start",
-  "localbase agent codex --install",
-  "localbase doctor"
-];
+const navItems = [
+  ["Workbench", "workbench"],
+  ["Flow", "flow"],
+  ["Demo", "demo"],
+  ["Tools", "tools"],
+  ["FAQ", "faq"]
+] as const;
 
-const oneOffSteps = [
-  "npx @mrace07/localbase init my-backend",
-  "cd my-backend",
-  "npm install -g @mrace07/localbase",
-  "localbase start"
+const stackItems = [
+  { label: "Postgres", detail: "project data, resources, indexes" },
+  { label: "API", detail: "REST endpoints on localhost:4000" },
+  { label: "MCP", detail: "Codex-safe backend operations" },
+  { label: "CLI", detail: "init, start, doctor, agent install" }
 ];
 
 const workflow = [
-  { label: "Install", detail: "Install the CLI from npm or run init once through npx." },
-  { label: "Start", detail: "Docker Compose starts Postgres and the Localbase API locally." },
-  { label: "Connect", detail: "The CLI registers the project MCP server with Codex." },
-  { label: "Prompt", detail: "Ask your agent to create resources, fields, indexes, and rows." },
-  { label: "Build", detail: "Use the generated REST API or SDK from your app code." }
-];
-
-const features = [
   {
-    title: "Published npm CLI",
-    text: "Install @mrace07/localbase, generate a project, start the stack, and connect Codex from one command-line flow."
+    title: "Create a workspace",
+    command: "npx @mrace07/localbase init my-backend",
+    text: "Scaffold a local backend project with the files needed to run the API and database together."
   },
   {
-    title: "Codex MCP installer",
-    text: "localbase agent codex --install registers the current project so Codex uses the package, not your dev checkout."
+    title: "Start the runtime",
+    command: "localbase start",
+    text: "Docker Compose brings up Postgres and the Localbase API without sending project data to a hosted service."
   },
   {
-    title: "Doctor checks",
-    text: "localbase doctor validates Docker access, Compose, API health, runtime images, and MCP registration."
-  },
-  {
-    title: "Local-first runtime",
-    text: "Postgres, the API, and project data stay on your machine. Hosted backends can remain an explicit future mode."
+    title: "Attach Codex",
+    command: "localbase agent codex --install",
+    text: "Register the project MCP server so Codex can inspect and change resources through typed tools."
   }
 ];
 
-const toolCalls = [
-  "get_backend_summary",
-  "create_resource",
-  "add_field",
-  "add_index",
-  "insert_row",
-  "sign_up"
+const tools = [
+  ["get_backend_summary", "Read resources, auth status, and available actions."],
+  ["create_resource", "Add a Postgres-backed API resource."],
+  ["add_field", "Attach typed fields with required/default behavior."],
+  ["add_index", "Create lookup paths for generated resources."],
+  ["insert_row", "Seed project data during an agent session."],
+  ["sign_up", "Create local users for auth-owned records."]
 ];
 
-const runtimeFacts = [
-  { label: "npm package", value: "@mrace07/localbase" },
-  { label: "API image", value: "mananchataut/localbase-api:latest" },
-  { label: "MCP image", value: "mananchataut/localbase-mcp:latest" },
-  { label: "API URL", value: "http://localhost:4000" }
+const facts = [
+  ["Runtime", "Postgres + API in Docker"],
+  ["Agent surface", "MCP tools, not broad shell scripts"],
+  ["Default API", "http://localhost:4000"],
+  ["Validation", "localbase doctor"]
 ];
 
-function CodeBlock({ lines, prompt = true }: { lines: string[]; prompt?: boolean }) {
+const faqs = [
+  ["What is Localbase?", "A local-first backend runtime that lets AI coding agents create and inspect Postgres-backed APIs."],
+  ["Does it require a hosted account?", "No. The default workflow runs locally with Docker Compose and a local MCP server."],
+  ["Why use MCP?", "MCP gives Codex narrow backend operations such as creating resources, fields, indexes, rows, and users."],
+  ["Can app code call the generated backend?", "Yes. The generated API and SDK are intended to be used directly from your application."]
+];
+
+function PromptLine({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
   return (
-    <pre className="overflow-x-auto rounded-md border border-stone-700 bg-[#0d100e] p-4 text-sm leading-7 text-stone-100 shadow-2xl shadow-black/20">
-      {lines.map((line, index) => (
-        <code className="block whitespace-pre" key={`${line}-${index}`}>
-          {prompt ? <span className="select-none text-emerald-500">$ </span> : null}
-          {line || " "}
-        </code>
-      ))}
-    </pre>
+    <p className={muted ? "text-zinc-500" : "text-zinc-200"}>
+      <span className="select-none text-emerald-300">$ </span>
+      {children}
+    </p>
   );
 }
 
 export default function Home() {
   return (
-    <main>
-      <section className="min-h-[92vh] px-5 py-6 sm:px-8 lg:px-12">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between py-2 text-sm text-stone-300">
-          <a className="flex items-center gap-3 font-semibold text-stone-50" href="#" aria-label="Localbase home">
-            <Image
-              src={logoLocalbase}
-              alt=""
-              width={36}
-              height={36}
-              priority
-              className="h-9 w-9 rounded-md"
-            />
-            <span>Localbase</span>
+    <main className="site-shell min-h-screen overflow-hidden text-zinc-50">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#090b0a]/85 backdrop-blur-xl">
+        <nav className="mx-auto flex h-14 max-w-[1180px] items-center justify-between px-4 text-sm text-zinc-300 sm:px-6">
+          <a className="flex items-center gap-2 font-semibold text-white" href="#" aria-label="Localbase home">
+            <Image src={logoLocalbase} alt="" width={28} height={28} priority className="h-7 w-7 rounded-md" />
+            <span className="text-base">Localbase</span>
           </a>
-          <div className="flex items-center gap-4">
-            <a className="hover:text-stone-50" href="#demo">
-              Demo
+          <div className="hidden items-center rounded-full border border-white/10 bg-white/[0.03] p-1 md:flex">
+            {navItems.map(([label, target]) => (
+              <a className="rounded-full px-4 py-2 transition hover:bg-white/10 hover:text-white" href={`#${target}`} key={target}>
+                {label}
+              </a>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <a className="hidden text-zinc-400 transition hover:text-white sm:inline" href="https://github.com/heyits-manan/localbase">
+              GitHub
             </a>
-            <a className="hover:text-stone-50" href="#workflow">
-              Workflow
-            </a>
-            <a className="rounded-md border border-stone-600 px-3 py-2 text-stone-100 hover:border-emerald-400" href="#install">
+            <a className="rounded-md bg-emerald-300 px-4 py-2 font-medium text-black transition hover:bg-emerald-200" href="#install">
               Install
             </a>
           </div>
         </nav>
+      </header>
 
-        <div className="mx-auto grid max-w-7xl gap-10 pt-20 lg:grid-cols-[1fr_0.92fr] lg:items-center lg:pt-28">
+      <section className="relative px-5 pb-20 pt-36 sm:px-6 lg:pb-28 lg:pt-44" id="workbench">
+        <div className="mx-auto grid max-w-[1180px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
-            <p className="mb-5 inline-flex rounded-md border border-emerald-700/70 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
-              Local-first backend infrastructure for AI coding agents
-            </p>
-            <h1 className="max-w-4xl text-5xl font-semibold leading-[1.02] tracking-normal text-stone-50 sm:text-6xl lg:text-7xl">
-              Localbase turns agent prompts into real Postgres-backed APIs.
+            <div className="inline-flex items-center gap-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-100">
+              <span className="h-2 w-2 rounded-full bg-emerald-300" />
+              Local backend runtime for agent-built apps
+            </div>
+            <h1 className="mt-7 max-w-3xl text-5xl font-medium leading-[1.05] text-white sm:text-6xl lg:text-7xl">
+              Give Codex a backend it can safely change.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-stone-300">
-              Install the CLI, start a local Docker runtime, and connect Codex through MCP. Your agent gets safe tools for
-              resources, fields, indexes, rows, and auth-owned data without writing schema SQL by hand.
+            <p className="mt-7 max-w-2xl text-lg leading-8 text-zinc-400">
+              Localbase runs Postgres, a resource API, and a project MCP server on your machine so agent prompts become
+              inspectable backend changes instead of one-off SQL and glue code.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a className="rounded-md bg-emerald-500 px-5 py-3 text-center font-semibold text-emerald-950 hover:bg-emerald-400" href="#install">
-                Start locally
-              </a>
-              <a className="rounded-md border border-stone-600 px-5 py-3 text-center font-semibold text-stone-100 hover:border-stone-300" href="#demo">
-                Watch demo
-              </a>
+            <div className="mt-9 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
+              {stackItems.map((item) => (
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3" key={item.label}>
+                  <p className="font-medium text-white">{item.label}</p>
+                  <p className="mt-2 text-xs leading-5 text-zinc-500">{item.detail}</p>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="rounded-md border border-stone-700 bg-[#0d100e] p-4 shadow-2xl shadow-black/30">
-            <div className="mb-4 flex items-center justify-between border-b border-stone-800 pb-3">
-              <div className="flex gap-2">
-                <span className="h-3 w-3 rounded-full bg-red-400" />
-                <span className="h-3 w-3 rounded-full bg-yellow-400" />
-                <span className="h-3 w-3 rounded-full bg-emerald-400" />
-              </div>
-              <span className="text-xs text-stone-500">codex prompt</span>
+          <div className="workbench-panel">
+            <div className="workbench-toolbar">
+              <span />
+              <span />
+              <span />
+              <p>localbase/workbench</p>
             </div>
-            <div className="space-y-4">
-              <div className="rounded-md border border-stone-800 bg-stone-950 p-4 text-sm leading-7 text-stone-200">
-                Use the localbase MCP server. Create a products resource with name text required, price integer required,
-                and in_stock boolean default true.
+            <div className="grid gap-4 p-4 lg:grid-cols-[1fr_0.78fr]">
+              <div className="terminal-pane">
+                <PromptLine>localbase init crm-agent</PromptLine>
+                <p className="text-zinc-500">created docker-compose.yml, .env.example, localbase.config.json</p>
+                <PromptLine>localbase start</PromptLine>
+                <p className="text-emerald-300">api ready on http://localhost:4000</p>
+                <PromptLine>localbase agent codex --install</PromptLine>
+                <p className="text-zinc-500">registered MCP server for this project</p>
+                <PromptLine muted>localbase doctor</PromptLine>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {toolCalls.map((tool) => (
-                  <div className="rounded-md border border-emerald-900/80 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-100" key={tool}>
-                    {tool}
+              <div className="schema-pane">
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-sm font-medium text-white">resources</p>
+                  <span className="rounded-full bg-emerald-300/10 px-2 py-1 text-xs text-emerald-200">healthy</span>
+                </div>
+                {["contacts", "companies", "notes", "activities"].map((table) => (
+                  <div className="schema-row" key={table}>
+                    <span>{table}</span>
+                    <code>id uuid</code>
                   </div>
                 ))}
               </div>
-              <div className="rounded-md bg-stone-950 p-4 text-sm text-stone-300">
-                <p className="mb-2 text-stone-100">Generated resource</p>
-                <code className="block text-emerald-200">products(id, name, price, in_stock, created_at, updated_at)</code>
-              </div>
+            </div>
+            <div className="workbench-strip">
+              <span>mcp.connected</span>
+              <span>postgres.local</span>
+              <span>api.healthy</span>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="bg-[#f3efe5] px-5 py-20 text-stone-950 sm:px-8 lg:px-12" id="demo">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-normal text-emerald-800">Demo</p>
-              <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">See Localbase connect Codex to a local backend.</h2>
-              <p className="mt-5 leading-8 text-stone-700">
-                The demo shows the package workflow: initialize a project, start the Docker runtime, register MCP, and let
-                Codex inspect or change backend resources through Localbase tools.
-              </p>
-            </div>
-            <div className="overflow-hidden rounded-md border border-stone-300 bg-stone-950 shadow-2xl shadow-stone-900/20">
-              <video
-                className="aspect-video w-full bg-stone-950"
-                controls
-                muted
-                playsInline
-                preload="metadata"
-                src="/demo.webm"
-              />
-            </div>
+      <section className="px-5 py-20 sm:px-6" id="flow">
+        <div className="mx-auto max-w-[1180px]">
+          <div className="section-kicker">Command-line flow</div>
+          <div className="mt-5 grid gap-8 lg:grid-cols-[0.36fr_0.64fr]">
+            <h2 className="text-4xl font-medium leading-tight text-white sm:text-5xl">A local backend from prompt to API.</h2>
+            <p className="max-w-2xl text-lg leading-8 text-zinc-400">
+              The product shape is intentionally narrow: install a project, start the local runtime, then expose specific
+              backend tools to Codex. That keeps the UI, API, and database behavior traceable during an AI coding session.
+            </p>
           </div>
-        </div>
-      </section>
 
-      <section className="bg-[#f3efe5] px-5 py-20 text-stone-950 sm:px-8 lg:px-12" id="workflow">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-normal text-emerald-800">How it works</p>
-            <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">A controlled path from prompt to database.</h2>
-          </div>
-          <div className="mt-10 grid gap-3 lg:grid-cols-5">
+          <div className="mt-12 grid gap-4 lg:grid-cols-3">
             {workflow.map((step, index) => (
-              <div className="rounded-md border border-stone-300 bg-white p-5" key={step.label}>
-                <div className="mb-5 flex h-9 w-9 items-center justify-center rounded-md bg-stone-950 text-sm font-semibold text-stone-50">
-                  {index + 1}
+              <article className="flow-card" key={step.title}>
+                <span className="flow-index">0{index + 1}</span>
+                <h3>{step.title}</h3>
+                <code>{step.command}</code>
+                <p>{step.text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-5 py-20 sm:px-6" id="demo">
+        <div className="mx-auto grid max-w-[1180px] gap-8 lg:grid-cols-[0.36fr_0.64fr] lg:items-center">
+          <div>
+            <div className="section-kicker">Demo</div>
+            <h2 className="mt-5 text-4xl font-medium leading-tight text-white sm:text-5xl">Watch Localbase wire up a project.</h2>
+            <p className="mt-5 leading-8 text-zinc-400">
+              The demo walks through the local workflow: initialize a backend, start the runtime, register Codex through
+              MCP, and inspect the generated backend surface.
+            </p>
+          </div>
+          <div className="demo-frame">
+            <div className="workbench-toolbar">
+              <span />
+              <span />
+              <span />
+              <p>demo.webm</p>
+            </div>
+            <video className="block aspect-video w-full bg-black" controls muted playsInline preload="metadata" src="/demo.webm" />
+          </div>
+        </div>
+      </section>
+
+      <section className="px-5 py-20 sm:px-6" id="tools">
+        <div className="mx-auto grid max-w-[1180px] gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-md border border-white/10 bg-zinc-950/60 p-7">
+            <div className="section-kicker">MCP tool surface</div>
+            <h2 className="mt-5 text-4xl font-medium leading-tight text-white">Backend actions Codex can call directly.</h2>
+            <p className="mt-5 leading-8 text-zinc-400">
+              Localbase is not trying to look like a hosted dashboard. The main interface is a controlled tool surface for
+              agents, plus a runtime you can validate from the terminal.
+            </p>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {facts.map(([label, value]) => (
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-4" key={label}>
+                  <p className="text-sm text-zinc-500">{label}</p>
+                  <p className="mt-2 text-white">{value}</p>
                 </div>
-                <h3 className="text-xl font-semibold">{step.label}</h3>
-                <p className="mt-3 text-sm leading-6 text-stone-600">{step.detail}</p>
-              </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="tool-grid">
+            {tools.map(([name, description]) => (
+              <article className="tool-card" key={name}>
+                <code>{name}</code>
+                <p>{description}</p>
+              </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#f3efe5] px-5 py-10 text-stone-950 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {features.map((feature) => (
-            <article className="rounded-md border border-stone-300 bg-white p-5" key={feature.title}>
-              <h3 className="text-lg font-semibold">{feature.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-stone-600">{feature.text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-stone-950 px-5 py-20 text-stone-50 sm:px-8 lg:px-12" id="install">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1fr] lg:items-start">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-normal text-emerald-300">Install</p>
-            <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">One package, local runtime, Codex-ready MCP.</h2>
-            <p className="mt-5 leading-8 text-stone-300">
-              The CLI scaffolds a project, starts Postgres and the API through Docker Compose, registers Codex MCP for
-              the current project, and checks the setup with doctor.
-            </p>
-          </div>
-          <CodeBlock lines={quickStartSteps} />
-        </div>
-      </section>
-
-      <section className="bg-[#f3efe5] px-5 py-20 text-stone-950 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[0.92fr_1.08fr]">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-normal text-emerald-800">Runtime details</p>
-            <h2 className="mt-3 text-4xl font-semibold tracking-normal">Published pieces and diagnostics.</h2>
-            <p className="mt-5 leading-8 text-stone-700">
-              Runtime Docker images default to <code>latest</code>, so CLI patch releases do not require republishing
-              matching image tags. Use <code>localbase doctor</code> when Docker, ports, images, or MCP registration need
-              checking.
-            </p>
-          </div>
-          <div className="grid gap-3">
-            {runtimeFacts.map((fact) => (
-              <div className="grid gap-2 rounded-md border border-stone-300 bg-white p-4 sm:grid-cols-[10rem_1fr]" key={fact.label}>
-                <span className="text-sm font-semibold text-stone-500">{fact.label}</span>
-                <code className="break-words text-sm text-stone-950">{fact.value}</code>
-              </div>
-            ))}
+      <section className="px-5 py-20 sm:px-6" id="faq">
+        <div className="mx-auto max-w-[1180px]">
+          <div className="section-kicker">FAQ</div>
+          <div className="mt-5 grid gap-8 lg:grid-cols-[0.36fr_0.64fr]">
+            <h2 className="text-4xl font-medium leading-tight text-white">Local-first by default.</h2>
+            <div className="space-y-3">
+              {faqs.map(([question, answer]) => (
+                <details className="faq-item" key={question}>
+                  <summary>{question}</summary>
+                  <p>{answer}</p>
+                </details>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="bg-[#f3efe5] px-5 py-20 text-stone-950 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-8 rounded-md border border-stone-300 bg-white p-6 md:grid-cols-[1fr_1.1fr] md:p-8">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-normal text-emerald-800">One-off init</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-normal">Use npx for the first project, then the installed binary.</h2>
-            <p className="mt-4 leading-7 text-stone-600">
-              This is useful for trying Localbase without a global install first. The generated project still recommends
-              <code> localbase</code> for start, doctor, and MCP setup.
-            </p>
+      <section className="px-5 pb-28 pt-12 sm:px-6" id="install">
+        <div className="mx-auto max-w-[1180px] rounded-md border border-emerald-300/25 bg-emerald-300/[0.06] p-6 sm:p-8">
+          <div className="grid gap-6 lg:grid-cols-[0.46fr_0.54fr] lg:items-center">
+            <div>
+              <h2 className="text-3xl font-medium text-white">Install the local runtime.</h2>
+              <p className="mt-3 leading-7 text-zinc-400">Start with npx, then use the generated project commands.</p>
+            </div>
+            <div className="rounded-md bg-black/70 p-4">
+              <PromptLine>npx @mrace07/localbase init my-backend</PromptLine>
+              <PromptLine>cd my-backend && localbase start</PromptLine>
+            </div>
           </div>
-          <CodeBlock lines={oneOffSteps} />
         </div>
       </section>
     </main>

@@ -1,6 +1,6 @@
 {
   "name": "@mrace07/localbase",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Local-first Localbase project initializer and runtime helper.",
   "type": "module",
   "bin": {

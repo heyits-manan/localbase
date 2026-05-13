@@ -1,5 +1,6 @@
 import type { AuthUser } from "@localbase/shared";
 import type { NextFunction, Request, Response } from "express";
+import { env } from "../env.js";
 import { getUserForToken } from "../services/auth-service.js";
 
 export type AuthenticatedRequest = Request & {
@@ -17,6 +18,14 @@ class AuthRequiredError extends Error {
   }
 }
 
+class AdminAuthRequiredError extends Error {
+  statusCode = 401;
+
+  constructor() {
+    super("Admin authentication required");
+  }
+}
+
 function getBearerToken(req: Request): string | null {
   const header = req.header("authorization");
   if (!header?.startsWith("Bearer ")) {
@@ -24,6 +33,20 @@ function getBearerToken(req: Request): string | null {
   }
 
   return header.slice("Bearer ".length).trim() || null;
+}
+
+export function requireAdmin(req: Request, _res: Response, next: NextFunction): void {
+  if (!env.API_ADMIN_TOKEN) {
+    next();
+    return;
+  }
+
+  if (getBearerToken(req) !== env.API_ADMIN_TOKEN) {
+    next(new AdminAuthRequiredError());
+    return;
+  }
+
+  next();
 }
 
 export async function optionalAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {

@@ -2,82 +2,86 @@
 
 [demo.webm](https://github.com/user-attachments/assets/a16494e0-9075-449a-8ead-c95243689839)
 
+Localbase is a local-first backend runtime for AI coding agents. It runs a local Postgres-backed API, exposes generic CRUD and auth endpoints, and gives Codex an MCP server so agents can create resources, fields, indexes, relationships, rows, and user-owned data through structured tools.
 
-Localbase is a local-first backend foundation inspired by InsForge. It lets AI coding agents manage PostgreSQL resources through an MCP server, exposes generic CRUD APIs, and includes a minimal email/password auth layer for user-owned data.
+Data stays in the generated project on the user's machine by default. Hosted or managed backends can be added later as an explicit opt-in mode, but the default path is local Docker, local API, and local MCP.
 
-## Requirements
+## Quick Start
+
+Requirements:
 
 - Node.js 20+
-- pnpm
 - Docker
 
-PostgreSQL runs through Docker Compose only. Do not install or configure PostgreSQL manually on your machine.
+Install the CLI:
 
-## Setup
-
-1. Install Docker.
-2. Run `docker compose up -d postgres`.
-3. Run `pnpm install`.
-4. Run `pnpm db:generate`.
-5. Run `pnpm db:migrate`.
-6. Run `pnpm dev:api`.
-
-Copy `.env.example` to `.env` if you want local overrides. The default API database URL is:
-
-```env
-DATABASE_URL=postgresql://localbase:localbase@localhost:5432/localbase
+```bash
+npm install -g @mrace07/localbase
 ```
 
-## Development Commands
+Create and start a local backend:
 
-- `pnpm dev:api`: start the Express API on port `4000`.
-- `pnpm dev:mcp`: start the MCP stdio server.
-- `pnpm --silent mcp`: start the quiet MCP stdio server for agent clients.
-- `pnpm db:generate`: generate Drizzle migrations for internal metadata tables.
-- `pnpm db:migrate`: apply Drizzle migrations.
-- `pnpm db:studio`: open Drizzle Studio.
-- `pnpm typecheck`: typecheck all workspace packages.
-- `pnpm lint`: run TypeScript checks for this MVP.
+```bash
+localbase init my-backend
+cd my-backend
+localbase start
+localbase agent codex --install
+localbase doctor
+```
 
-## Packaging Direction
+Then restart Codex from a shell where `docker ps` works and ask:
 
-Localbase is local-first. The planned `npx @mrace07/localbase init` flow should bootstrap a local workspace and run the local stack: Docker Postgres, the API, and the MCP stdio server. It should not default to a hosted API.
+```text
+Use the localbase MCP server. Call get_backend_summary, then list resources.
+```
 
-Hosted or managed backends can be added later as an explicit opt-in mode, but the default developer path should keep data and schema operations on the user's machine.
-
-The intended packaged workflow is:
+You can also scaffold without installing globally first:
 
 ```bash
 npx @mrace07/localbase init my-backend
 cd my-backend
+npm install -g @mrace07/localbase
 localbase start
-localbase agent codex --install
 ```
 
-`init` only writes the local project files. `start` runs the Docker Compose runtime. `agent codex --install` registers the MCP server with Codex for that project. `localbase doctor` checks Docker access, API health, image availability, and Codex MCP registration.
+`init` only writes project files. `start` runs the Docker Compose runtime. `agent codex --install` registers the generated project as Codex's `localbase` MCP server. `doctor` checks Docker access, Compose, API health, Docker images, and Codex MCP registration.
 
-Published Docker images:
+Generated projects include a `.env` with an `API_ADMIN_TOKEN`. Schema-changing API routes require this token when it is set.
 
-- `mananchataut/localbase-api`
-- `mananchataut/localbase-mcp`
-
-The published `latest` tags must be multi-platform Linux images. Docker will then pull the correct runtime automatically on macOS, Windows, and Linux.
-
-Before publishing the npm package, publish the runtime images:
+## CLI Commands
 
 ```bash
-docker login
-pnpm docker:publish
+localbase init [directory] [--force] [--with-web] [--local-images] [--api-port <port>] [--web-port <port>] [--image-tag <tag>]
+localbase start
+localbase stop
+localbase status
+localbase mcp [--project <directory>]
+localbase agent codex [--install]
+localbase doctor
 ```
 
-Verify that each published image includes `linux/amd64` and `linux/arm64`:
+- `init`: scaffold a local-first project with `.env`, `.gitignore`, `docker-compose.yml`, `localbase.config.json`, and a project README.
+- `start`: start the generated Docker Compose runtime.
+- `stop`: stop the generated Docker Compose runtime.
+- `status`: show Compose service status.
+- `mcp`: run the MCP stdio server for a generated project.
+- `agent codex`: print or install Codex MCP setup for the project.
+- `doctor`: check the local runtime and Codex MCP registration.
 
-```bash
-docker buildx imagetools inspect mananchataut/localbase-api:latest
-docker buildx imagetools inspect mananchataut/localbase-mcp:latest
-```
+Generated projects use Docker images from Docker Hub:
+
+- `mananchataut/localbase-api:latest`
+- `mananchataut/localbase-mcp:latest`
+
+Those tags are multi-platform Linux images, so Docker pulls the right variant on macOS, Windows, and Linux.
 
 ## API Examples
+
+From a generated project, load the admin token:
+
+```bash
+export API_ADMIN_TOKEN="$(grep '^API_ADMIN_TOKEN=' .env | cut -d= -f2-)"
+```
 
 Health check:
 
@@ -89,11 +93,12 @@ Create a resource:
 
 ```bash
 curl -X POST http://localhost:4000/resources \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"companies","fields":[{"name":"name","type":"text","required":true},{"name":"website","type":"text"},{"name":"active","type":"boolean","defaultValue":true,"indexed":true}]}'
 ```
 
-Insert and list resource rows:
+Insert and list rows:
 
 ```bash
 curl -X POST http://localhost:4000/resources/companies/rows \
@@ -103,50 +108,27 @@ curl -X POST http://localhost:4000/resources/companies/rows \
 curl http://localhost:4000/resources/companies/rows
 ```
 
-Get, update, and delete a resource row:
-
-```bash
-curl http://localhost:4000/resources/companies/rows/row-id
-
-curl -X PATCH http://localhost:4000/resources/companies/rows/row-id \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Acme Inc"}'
-
-curl -X DELETE http://localhost:4000/resources/companies/rows/row-id
-```
-
-Add a field to an existing resource:
+Add fields and indexes:
 
 ```bash
 curl -X POST http://localhost:4000/resources/companies/fields \
-  -H "Content-Type: application/json" \
-  -d '{"name":"description","type":"text"}'
-
-curl -X POST http://localhost:4000/resources/companies/fields \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"rating","type":"integer","required":true,"defaultValue":0,"indexed":true}'
-```
 
-Rename or update a field:
-
-```bash
-curl -X PATCH http://localhost:4000/resources/companies/fields/description \
-  -H "Content-Type: application/json" \
-  -d '{"name":"summary","defaultValue":"", "indexed":true}'
-```
-
-Delete a field:
-
-```bash
-curl -X DELETE http://localhost:4000/resources/companies/fields/summary
-```
-
-Add an index to an existing field:
-
-```bash
 curl -X POST http://localhost:4000/resources/companies/indexes \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"field":"active"}'
+```
+
+Create a relationship field:
+
+```bash
+curl -X POST http://localhost:4000/resources/companies/relationships \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"field":"parent_company_id","references":{"resource":"companies","field":"id","onDelete":"set null"}}'
 ```
 
 Filter listed rows:
@@ -157,12 +139,6 @@ curl 'http://localhost:4000/resources/companies/rows?where[name][contains]=acme&
 ```
 
 Supported filter operators are `eq`, `ne`, `contains`, `gt`, `gte`, `lt`, `lte`, and `isNull`. The shorthand `where[field]=value` is equivalent to `where[field][eq]=value`.
-
-Delete a resource:
-
-```bash
-curl -X DELETE http://localhost:4000/resources/companies
-```
 
 Create a user and save the bearer token:
 
@@ -179,11 +155,12 @@ Create a user-owned resource:
 
 ```bash
 curl -X POST http://localhost:4000/resources \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"todos","ownedByUser":true,"fields":[{"name":"title","type":"text","required":true},{"name":"done","type":"boolean","defaultValue":false}]}'
 ```
 
-Insert and list owned rows with the token:
+Insert and list owned rows with the user token:
 
 ```bash
 curl -X POST http://localhost:4000/resources/todos/rows \
@@ -199,51 +176,31 @@ Owned resources automatically add `user_id`, reject client-supplied `user_id`, a
 
 ## MCP Use
 
-Start the API first, then configure your MCP client to launch the quiet MCP command:
+For generated projects, install the Codex MCP registration from the project directory:
 
 ```bash
-docker compose up -d postgres
-pnpm db:migrate
-pnpm dev:api
+localbase agent codex --install
+codex mcp get localbase
 ```
 
-Use `pnpm --silent mcp` for MCP clients. It avoids package-manager lifecycle output on stdout, which is important for stdio MCP.
-
-Example MCP config:
-
-```json
-{
-  "mcpServers": {
-    "localbase": {
-      "command": "pnpm",
-      "args": ["--silent", "mcp"],
-      "cwd": "/absolute/path/to/localbase",
-      "env": {
-        "API_BASE_URL": "http://localhost:4000"
-      }
-    }
-  }
-}
-```
-
-Local coding agents can call `get_backend_summary` first to verify the API is reachable and inspect existing backend state. They can then call resource tools such as `list_resources`, `describe_resource`, `create_resource`, `delete_resource`, `add_field`, `update_field`, `delete_field`, `add_index`, `list_rows`, `insert_row`, `get_row`, `update_row`, and `delete_row` over stdio. They can also call `describe_auth_config`, `sign_up`, `sign_in`, `get_current_user`, and `sign_out` for auth behavior.
-
-For this checkout, replace `/absolute/path/to/localbase` with the absolute path to your repository checkout.
-
-After connecting the MCP server in Codex, ask the agent:
+The registration should point at the generated project:
 
 ```text
-Use the localbase MCP server. Call get_backend_summary, then create a products resource with name text required, price integer required, and in_stock boolean default true.
+command: localbase
+args: mcp --project /path/to/your/project
 ```
 
-The agent should call `create_resource`, `add_field`, and `add_index`, not write SQL manually.
+Agents can call `get_backend_summary` first to verify the API is reachable. Available tools include `list_resources`, `describe_resource`, `create_resource`, `delete_resource`, `add_field`, `update_field`, `delete_field`, `add_index`, `create_relationship`, `list_rows`, `insert_row`, `get_row`, `update_row`, `delete_row`, `describe_auth_config`, `sign_up`, `sign_in`, `get_current_user`, and `sign_out`.
 
 ## SDK Example
 
 ```ts
 import { createLocalbaseClient } from "@localbase/sdk";
 
-const localbase = createLocalbaseClient({ baseUrl: "http://localhost:4000" });
+const localbase = createLocalbaseClient({
+  baseUrl: "http://localhost:4000",
+  adminToken: process.env.API_ADMIN_TOKEN
+});
 
 await localbase.auth.signUp("ada@example.com", "password123");
 await localbase.auth.getUser();
@@ -256,10 +213,7 @@ await localbase.resources.create({
     { name: "done", type: "boolean", defaultValue: false }
   ]
 });
-await localbase.resources.list();
-await localbase.resources.describe("todos");
 await localbase.resources.addField("todos", { name: "priority", type: "integer", defaultValue: 0 });
-await localbase.resources.updateField("todos", "priority", { indexed: true });
 await localbase.resources.addIndex("todos", "priority");
 await localbase.resources.rows("todos").insert({ title: "Ship auth" });
 await localbase.resources.rows("todos").list({
@@ -268,9 +222,58 @@ await localbase.resources.rows("todos").list({
   orderBy: "created_at",
   orderDirection: "desc"
 });
-await localbase.resources.rows("todos").get("row-id");
-await localbase.resources.rows("todos").update("row-id", { done: true });
-await localbase.resources.rows("todos").delete("row-id");
-await localbase.resources.deleteField("todos", "priority");
-await localbase.resources.delete("todos");
+```
+
+## Repository Development
+
+Requirements for working on this repo:
+
+- Node.js 20+
+- pnpm
+- Docker
+
+PostgreSQL runs through Docker Compose. Do not install or configure PostgreSQL manually for local development.
+
+```bash
+docker compose up -d postgres
+pnpm install
+pnpm db:generate
+pnpm db:migrate
+pnpm dev:api
+```
+
+Copy `.env.example` to `.env` if you want local overrides. The default API database URL is:
+
+```env
+DATABASE_URL=postgresql://localbase:localbase@localhost:5432/localbase
+```
+
+Development commands:
+
+- `pnpm dev:api`: start the Express API on port `4000`.
+- `pnpm dev:mcp`: start the MCP stdio server.
+- `pnpm --silent mcp`: start the quiet repo-local MCP stdio server.
+- `pnpm db:generate`: generate Drizzle migrations for internal metadata tables.
+- `pnpm db:migrate`: apply Drizzle migrations.
+- `pnpm db:studio`: open Drizzle Studio.
+- `pnpm test`: run workspace tests.
+- `pnpm typecheck`: typecheck all workspace packages.
+- `pnpm lint`: run TypeScript checks.
+
+## Release Notes
+
+Publish and verify runtime images before publishing the npm package:
+
+```bash
+docker login
+pnpm docker:publish
+docker buildx imagetools inspect mananchataut/localbase-api:latest
+docker buildx imagetools inspect mananchataut/localbase-mcp:latest
+```
+
+Then publish the CLI package from `packages/cli`:
+
+```bash
+pnpm --filter @mrace07/localbase lint
+pnpm --filter @mrace07/localbase publish --access public
 ```

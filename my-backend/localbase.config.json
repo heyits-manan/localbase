@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "apiUrl": "http://localhost:4000",
+  "imageTag": "latest",
+  "images": {
+    "local": false
+  },
+  "services": {
+    "web": false
+  }
+}

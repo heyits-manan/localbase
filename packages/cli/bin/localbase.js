@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
+import net from "node:net";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageJson = JSON.parse(readFileSync(resolve(packageRoot, "package.json"), "utf8"));
@@ -149,6 +150,7 @@ API_ADMIN_TOKEN=${adminToken}
 POSTGRES_USER=localbase
 POSTGRES_PASSWORD=localbase
 POSTGRES_DB=localbase
+LOCALBASE_POSTGRES_PORT=5432
 DATABASE_URL=postgresql://localbase:localbase@postgres:5432/localbase
 `;
 }
@@ -184,7 +186,7 @@ function composeTemplate(options) {
       POSTGRES_PASSWORD: \${POSTGRES_PASSWORD:-localbase}
       POSTGRES_DB: \${POSTGRES_DB:-localbase}
     ports:
-      - "5432:5432"
+      - "\${LOCALBASE_POSTGRES_PORT:-5432}:5432"
     volumes:
       - localbase_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -398,8 +400,95 @@ function runCompose(args, options = {}) {
   process.exit(result.status ?? 1);
 }
 
-function startProject() {
+async function preparePostgresHostPort(projectDir) {
+  upgradeComposePostgresPort(projectDir);
+
+  if (isComposeServiceRunning(projectDir, "postgres")) {
+    return;
+  }
+
+  const env = readEnvFile(projectDir);
+  const configuredPort = Number(env.LOCALBASE_POSTGRES_PORT ?? "5432");
+  const currentPort = Number.isInteger(configuredPort) && configuredPort >= 1 && configuredPort <= 65535 ? configuredPort : 5432;
+  const availablePort = await findAvailablePort(currentPort);
+
+  if (availablePort !== currentPort || env.LOCALBASE_POSTGRES_PORT === undefined) {
+    upsertEnvValue(projectDir, "LOCALBASE_POSTGRES_PORT", String(availablePort));
+  }
+
+  if (availablePort !== currentPort) {
+    console.log(`Port ${currentPort} is already in use. Using Postgres host port ${availablePort} for this project.`);
+  }
+}
+
+function upgradeComposePostgresPort(projectDir) {
+  const composePath = resolve(projectDir, "docker-compose.yml");
+  const compose = readFileSync(composePath, "utf8");
+  const upgraded = compose.replace('      - "5432:5432"', '      - "${LOCALBASE_POSTGRES_PORT:-5432}:5432"');
+  if (upgraded !== compose) {
+    writeFileSync(composePath, upgraded);
+  }
+}
+
+function isComposeServiceRunning(projectDir, service) {
+  const result = spawnSync("docker", ["compose", "ps", "--status", "running", "--services", service], {
+    cwd: projectDir,
+    encoding: "utf8",
+    stdio: "pipe"
+  });
+
+  return result.status === 0 && result.stdout.split("\n").some((line) => line.trim() === service);
+}
+
+async function findAvailablePort(startPort) {
+  for (let port = startPort; port <= 65535 && port < startPort + 100; port += 1) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+  exitWith(`Could not find an available Postgres host port starting at ${startPort}.`);
+}
+
+function isPortAvailable(port) {
+  return new Promise((resolvePort) => {
+    const server = net.createServer();
+    server.once("error", () => resolvePort(false));
+    server.once("listening", () => {
+      server.close(() => resolvePort(true));
+    });
+    server.listen(port, "0.0.0.0");
+  });
+}
+
+function upsertEnvValue(projectDir, key, value) {
+  const envPath = resolve(projectDir, ".env");
+  const existing = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
+  const lines = existing.split("\n");
+  const keyPrefix = `${key}=`;
+  let found = false;
+
+  const nextLines = lines.map((line) => {
+    if (line.startsWith(keyPrefix)) {
+      found = true;
+      return `${key}=${value}`;
+    }
+    return line;
+  });
+
+  if (!found) {
+    if (nextLines.length > 0 && nextLines[nextLines.length - 1] === "") {
+      nextLines.splice(nextLines.length - 1, 0, `${key}=${value}`);
+    } else {
+      nextLines.push(`${key}=${value}`);
+    }
+  }
+
+  writeFileSync(envPath, nextLines.join("\n"));
+}
+
+async function startProject() {
   ensureProject();
+  await preparePostgresHostPort(process.cwd());
   runCompose(["up", "-d"]);
 }
 
@@ -813,7 +902,7 @@ function shellQuote(value) {
   return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
 
-function main() {
+async function main() {
   const [command, subcommand, ...rest] = process.argv.slice(2);
 
   if (!command || command === "--help" || command === "-h") {
@@ -829,7 +918,7 @@ function main() {
   if (command === "init") {
     initProject([subcommand, ...rest].filter(Boolean));
   } else if (command === "start") {
-    startProject();
+    await startProject();
   } else if (command === "stop") {
     stopProject();
   } else if (command === "status") {
@@ -845,4 +934,6 @@ function main() {
   }
 }
 
-main();
+main().catch((error) => {
+  exitWith(error instanceof Error ? error.message : "Unknown Localbase CLI error.");
+});

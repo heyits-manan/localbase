@@ -56,7 +56,7 @@ Scaffold a generated Localbase project with `docker-compose.yml`, `.env`, `local
 localbase start
 ```
 
-Start the local Docker Compose runtime.
+Start the local Docker Compose runtime. If the generated Postgres host port is already in use, Localbase selects the next available port and writes it to `.env` as `LOCALBASE_POSTGRES_PORT`.
 
 ```bash
 localbase stop
@@ -113,7 +113,7 @@ newgrp docker
 docker ps
 ```
 
-If port `5432` is already allocated, stop the conflicting Postgres container or change the host port in `docker-compose.yml`.
+If port `5432` is already allocated, `localbase start` automatically selects another Postgres host port and stores it in `.env`.
 
 If Codex cannot see the MCP server, run this from the generated project:
 

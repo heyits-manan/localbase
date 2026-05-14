@@ -11,3 +11,4 @@ coverage/
 apps/web/next-env.d.ts
 apps/web/app/assets/demo.webm
 test-localbase/
+my-backend/

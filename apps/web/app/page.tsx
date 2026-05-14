@@ -4,16 +4,17 @@ import logoLocalbase from "./assets/logo_localbase.png";
 const navItems = [
   ["Workbench", "workbench"],
   ["Flow", "flow"],
-  ["Demo", "demo"],
+  ["Install", "install"],
   ["Tools", "tools"],
+  ["Demo", "demo"],
   ["FAQ", "faq"]
 ] as const;
 
 const stackItems = [
-  { label: "Postgres", detail: "project data, resources, indexes" },
-  { label: "API", detail: "REST endpoints on localhost:4000" },
-  { label: "MCP", detail: "Codex-safe backend operations" },
-  { label: "CLI", detail: "init, start, doctor, agent install" }
+  { label: "Postgres", detail: "tables, rows, indexes" },
+  { label: "Resource API", detail: "localhost:4000" },
+  { label: "MCP server", detail: "scoped agent tools" },
+  { label: "Project CLI", detail: "init, start, doctor" }
 ];
 
 const workflow = [
@@ -31,6 +32,34 @@ const workflow = [
     title: "Attach Codex",
     command: "localbase agent codex --install",
     text: "Register the project MCP server so Codex can inspect and change resources through typed tools."
+  }
+];
+
+const installSteps = [
+  {
+    title: "Check prerequisites",
+    command: "node --version && docker --version",
+    text: "Use Node.js 20 or newer and a running Docker installation."
+  },
+  {
+    title: "Create a backend workspace",
+    command: "npx @mrace07/localbase init my-backend",
+    text: "Run this outside your app folder when you want a standalone local backend project."
+  },
+  {
+    title: "Start Localbase",
+    command: "cd my-backend && localbase start",
+    text: "This starts Postgres and the API. Keep the process running while your app or agent uses it."
+  },
+  {
+    title: "Connect Codex",
+    command: "localbase agent codex --install",
+    text: "Registers the project MCP server so Codex can use Localbase tools for this workspace."
+  },
+  {
+    title: "Verify the setup",
+    command: "localbase doctor",
+    text: "Confirms Docker, the database, the API, and the agent configuration are reachable."
   }
 ];
 
@@ -59,8 +88,8 @@ const faqs = [
 
 function PromptLine({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
   return (
-    <p className={muted ? "text-zinc-500" : "text-zinc-200"}>
-      <span className="select-none text-emerald-300">$ </span>
+    <p className={muted ? "text-zinc-500" : "text-zinc-100"}>
+      <span className="select-none text-lime-300">$ </span>
       {children}
     </p>
   );
@@ -68,49 +97,49 @@ function PromptLine({ children, muted = false }: { children: React.ReactNode; mu
 
 export default function Home() {
   return (
-    <main className="site-shell min-h-screen overflow-hidden text-zinc-50">
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#090b0a]/85 backdrop-blur-xl">
-        <nav className="mx-auto flex h-14 max-w-[1180px] items-center justify-between px-4 text-sm text-zinc-300 sm:px-6">
-          <a className="flex items-center gap-2 font-semibold text-white" href="#" aria-label="Localbase home">
-            <Image src={logoLocalbase} alt="" width={28} height={28} priority className="h-7 w-7 rounded-md" />
-            <span className="text-base">Localbase</span>
+    <main className="site-shell min-h-screen overflow-hidden text-zinc-950">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 bg-white/90 backdrop-blur-md">
+        <nav className="mx-auto flex h-16 max-w-[1180px] items-center justify-between px-4 text-sm text-zinc-600 sm:px-6">
+          <a className="flex items-center gap-3 font-semibold text-zinc-950" href="#" aria-label="Localbase home">
+            <Image src={logoLocalbase} alt="" width={32} height={32} priority className="h-8 w-8 rounded-md" />
+            <span className="text-base tracking-wide">Localbase</span>
           </a>
-          <div className="hidden items-center rounded-full border border-white/10 bg-white/[0.03] p-1 md:flex">
+          <div className="hidden items-center border border-zinc-200 bg-zinc-50 md:flex">
             {navItems.map(([label, target]) => (
-              <a className="rounded-full px-4 py-2 transition hover:bg-white/10 hover:text-white" href={`#${target}`} key={target}>
+              <a className="border-r border-zinc-200 px-4 py-2 transition last:border-r-0 hover:bg-white hover:text-zinc-950" href={`#${target}`} key={target}>
                 {label}
               </a>
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <a className="hidden text-zinc-400 transition hover:text-white sm:inline" href="https://github.com/heyits-manan/localbase">
+            <a className="hidden text-zinc-500 transition hover:text-zinc-950 sm:inline" href="https://github.com/heyits-manan/localbase">
               GitHub
             </a>
-            <a className="rounded-md bg-emerald-300 px-4 py-2 font-medium text-black transition hover:bg-emerald-200" href="#install">
+            <a className="rounded-sm bg-zinc-950 px-4 py-2 font-medium text-white transition hover:bg-zinc-800" href="#install">
               Install
             </a>
           </div>
         </nav>
       </header>
 
-      <section className="relative px-5 pb-20 pt-36 sm:px-6 lg:pb-28 lg:pt-44" id="workbench">
-        <div className="mx-auto grid max-w-[1180px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+      <section className="relative px-5 pb-16 pt-32 sm:px-6 lg:pb-24 lg:pt-40" id="workbench">
+        <div className="mx-auto grid max-w-[1180px] gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
           <div>
-            <div className="inline-flex items-center gap-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-100">
-              <span className="h-2 w-2 rounded-full bg-emerald-300" />
+            <div className="inline-flex items-center gap-3 border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-lime-500" />
               Local backend runtime for agent-built apps
             </div>
-            <h1 className="mt-7 max-w-3xl text-5xl font-medium leading-[1.05] text-white sm:text-6xl lg:text-7xl">
+            <h1 className="mt-7 max-w-3xl text-5xl font-semibold leading-[1.02] text-zinc-950 sm:text-6xl lg:text-7xl">
               Give Codex a backend it can safely change.
             </h1>
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-zinc-400">
+            <p className="mt-7 max-w-2xl text-lg leading-8 text-zinc-600">
               Localbase runs Postgres, a resource API, and a project MCP server on your machine so agent prompts become
               inspectable backend changes instead of one-off SQL and glue code.
             </p>
-            <div className="mt-9 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-9 grid max-w-xl grid-cols-2 border border-zinc-200 bg-white sm:grid-cols-4">
               {stackItems.map((item) => (
-                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3" key={item.label}>
-                  <p className="font-medium text-white">{item.label}</p>
+                <div className="border-b border-r border-zinc-200 p-3 even:border-r-0 sm:border-b-0 sm:even:border-r sm:last:border-r-0" key={item.label}>
+                  <p className="font-medium text-zinc-950">{item.label}</p>
                   <p className="mt-2 text-xs leading-5 text-zinc-500">{item.detail}</p>
                 </div>
               ))}
@@ -129,15 +158,15 @@ export default function Home() {
                 <PromptLine>localbase init crm-agent</PromptLine>
                 <p className="text-zinc-500">created docker-compose.yml, .env.example, localbase.config.json</p>
                 <PromptLine>localbase start</PromptLine>
-                <p className="text-emerald-300">api ready on http://localhost:4000</p>
+                <p className="text-lime-300">api ready on http://localhost:4000</p>
                 <PromptLine>localbase agent codex --install</PromptLine>
                 <p className="text-zinc-500">registered MCP server for this project</p>
                 <PromptLine muted>localbase doctor</PromptLine>
               </div>
               <div className="schema-pane">
                 <div className="mb-4 flex items-center justify-between">
-                  <p className="text-sm font-medium text-white">resources</p>
-                  <span className="rounded-full bg-emerald-300/10 px-2 py-1 text-xs text-emerald-200">healthy</span>
+                  <p className="text-sm font-medium text-zinc-950">resources</p>
+                  <span className="bg-lime-100 px-2 py-1 text-xs text-lime-800">healthy</span>
                 </div>
                 {["contacts", "companies", "notes", "activities"].map((table) => (
                   <div className="schema-row" key={table}>
@@ -160,8 +189,8 @@ export default function Home() {
         <div className="mx-auto max-w-[1180px]">
           <div className="section-kicker">Command-line flow</div>
           <div className="mt-5 grid gap-8 lg:grid-cols-[0.36fr_0.64fr]">
-            <h2 className="text-4xl font-medium leading-tight text-white sm:text-5xl">A local backend from prompt to API.</h2>
-            <p className="max-w-2xl text-lg leading-8 text-zinc-400">
+            <h2 className="text-4xl font-semibold leading-tight text-zinc-950 sm:text-5xl">A local backend from prompt to API.</h2>
+            <p className="max-w-2xl text-lg leading-8 text-zinc-600">
               The product shape is intentionally narrow: install a project, start the local runtime, then expose specific
               backend tools to Codex. That keeps the UI, API, and database behavior traceable during an AI coding session.
             </p>
@@ -180,12 +209,38 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="px-5 py-20 sm:px-6" id="install">
+        <div className="mx-auto max-w-[1180px]">
+          <div className="section-kicker">Installation</div>
+          <div className="mt-5 grid gap-8 lg:grid-cols-[0.34fr_0.66fr]">
+            <div>
+              <h2 className="text-4xl font-semibold leading-tight text-zinc-950 sm:text-5xl">Install without guessing the order.</h2>
+              <p className="mt-5 leading-8 text-zinc-600">
+                These are the exact steps for a new local backend workspace, including prerequisites and the validation command.
+              </p>
+            </div>
+            <div className="install-board">
+              {installSteps.map((step, index) => (
+                <article className="install-step" key={step.title}>
+                  <span className="install-index">{String(index + 1).padStart(2, "0")}</span>
+                  <div>
+                    <h3>{step.title}</h3>
+                    <p>{step.text}</p>
+                    <code>{step.command}</code>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="px-5 py-20 sm:px-6" id="demo">
         <div className="mx-auto grid max-w-[1180px] gap-8 lg:grid-cols-[0.36fr_0.64fr] lg:items-center">
           <div>
             <div className="section-kicker">Demo</div>
-            <h2 className="mt-5 text-4xl font-medium leading-tight text-white sm:text-5xl">Watch Localbase wire up a project.</h2>
-            <p className="mt-5 leading-8 text-zinc-400">
+            <h2 className="mt-5 text-4xl font-semibold leading-tight text-zinc-950 sm:text-5xl">Watch Localbase wire up a project.</h2>
+            <p className="mt-5 leading-8 text-zinc-600">
               The demo walks through the local workflow: initialize a backend, start the runtime, register Codex through
               MCP, and inspect the generated backend surface.
             </p>
@@ -204,18 +259,18 @@ export default function Home() {
 
       <section className="px-5 py-20 sm:px-6" id="tools">
         <div className="mx-auto grid max-w-[1180px] gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-md border border-white/10 bg-zinc-950/60 p-7">
+          <div className="border border-zinc-200 bg-white p-7">
             <div className="section-kicker">MCP tool surface</div>
-            <h2 className="mt-5 text-4xl font-medium leading-tight text-white">Backend actions Codex can call directly.</h2>
-            <p className="mt-5 leading-8 text-zinc-400">
+            <h2 className="mt-5 text-4xl font-semibold leading-tight text-zinc-950">Backend actions Codex can call directly.</h2>
+            <p className="mt-5 leading-8 text-zinc-600">
               Localbase is not trying to look like a hosted dashboard. The main interface is a controlled tool surface for
               agents, plus a runtime you can validate from the terminal.
             </p>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {facts.map(([label, value]) => (
-                <div className="rounded-md border border-white/10 bg-white/[0.035] p-4" key={label}>
+                <div className="border border-zinc-200 bg-zinc-50 p-4" key={label}>
                   <p className="text-sm text-zinc-500">{label}</p>
-                  <p className="mt-2 text-white">{value}</p>
+                  <p className="mt-2 text-zinc-950">{value}</p>
                 </div>
               ))}
             </div>
@@ -236,7 +291,7 @@ export default function Home() {
         <div className="mx-auto max-w-[1180px]">
           <div className="section-kicker">FAQ</div>
           <div className="mt-5 grid gap-8 lg:grid-cols-[0.36fr_0.64fr]">
-            <h2 className="text-4xl font-medium leading-tight text-white">Local-first by default.</h2>
+            <h2 className="text-4xl font-semibold leading-tight text-zinc-950">Local-first by default.</h2>
             <div className="space-y-3">
               {faqs.map(([question, answer]) => (
                 <details className="faq-item" key={question}>
@@ -244,21 +299,6 @@ export default function Home() {
                   <p>{answer}</p>
                 </details>
               ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="px-5 pb-28 pt-12 sm:px-6" id="install">
-        <div className="mx-auto max-w-[1180px] rounded-md border border-emerald-300/25 bg-emerald-300/[0.06] p-6 sm:p-8">
-          <div className="grid gap-6 lg:grid-cols-[0.46fr_0.54fr] lg:items-center">
-            <div>
-              <h2 className="text-3xl font-medium text-white">Install the local runtime.</h2>
-              <p className="mt-3 leading-7 text-zinc-400">Start with npx, then use the generated project commands.</p>
-            </div>
-            <div className="rounded-md bg-black/70 p-4">
-              <PromptLine>npx @mrace07/localbase init my-backend</PromptLine>
-              <PromptLine>cd my-backend && localbase start</PromptLine>
             </div>
           </div>
         </div>

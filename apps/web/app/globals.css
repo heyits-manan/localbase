@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
-  --background: #080908;
-  --foreground: #f7f7f4;
+  color-scheme: light;
+  --background: #f4f5f5;
+  --foreground: #18181b;
 }
 
 * {
@@ -35,35 +35,15 @@ pre {
 
 .site-shell {
   position: relative;
-  background:
-    radial-gradient(circle at 9% 16rem, rgba(110, 231, 183, 0.13), transparent 23rem),
-    radial-gradient(circle at 83% 9rem, rgba(161, 161, 170, 0.14), transparent 18rem),
-    linear-gradient(180deg, #080908 0%, #0c0e0c 52%, #080908 100%);
+  background: #f4f5f5;
 }
 
 .site-shell::before {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  content: "";
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: linear-gradient(to bottom, black 0%, black 56%, transparent 100%);
+  display: none;
 }
 
 .site-shell::after {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  content: "";
-  opacity: 0.35;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 0.7px, transparent 0.7px);
-  background-size: 5px 5px;
-  mask-image: radial-gradient(circle at 47% 5%, black, transparent 20rem);
+  display: none;
 }
 
 .site-shell > * {
@@ -73,12 +53,10 @@ pre {
 
 .workbench-panel {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.09), transparent 40%),
-    rgba(10, 12, 11, 0.92);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+  border: 1px solid #d4d4d8;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 12px 12px 0 #d9f99d;
 }
 
 .workbench-toolbar {
@@ -86,7 +64,8 @@ pre {
   height: 48px;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #d4d4d8;
+  background: #f8fafc;
   padding: 0 16px;
 }
 
@@ -94,7 +73,7 @@ pre {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
+  background: #a1a1aa;
 }
 
 .workbench-toolbar span:nth-child(1) {
@@ -112,23 +91,23 @@ pre {
 .workbench-toolbar p {
   margin-left: auto;
   font-size: 12px;
-  color: rgb(113, 113, 122);
+  color: rgb(82, 82, 91);
 }
 
 .terminal-pane {
   min-height: 350px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: #050605;
+  border: 1px solid #27272a;
+  border-radius: 4px;
+  background: #111113;
   padding: 20px;
   font-size: 14px;
   line-height: 2;
 }
 
 .schema-pane {
-  border: 1px solid rgba(110, 231, 183, 0.2);
-  border-radius: 8px;
-  background: rgba(110, 231, 183, 0.04);
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #fafafa;
   padding: 16px;
 }
 
@@ -137,9 +116,9 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid #e4e4e7;
   padding: 14px 0;
-  color: rgb(228, 228, 231);
+  color: rgb(39, 39, 42);
 }
 
 .schema-row code {
@@ -151,38 +130,38 @@ pre {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid #d4d4d8;
+  background: #fafafa;
   padding: 12px 16px;
 }
 
 .workbench-strip span {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid #d4d4d8;
+  background: #ffffff;
   padding: 6px 10px;
   font-size: 12px;
-  color: rgb(161, 161, 170);
+  color: rgb(82, 82, 91);
 }
 
 .section-kicker {
   display: inline-flex;
   width: fit-content;
-  border: 1px solid rgba(110, 231, 183, 0.24);
-  border-radius: 999px;
-  background: rgba(110, 231, 183, 0.07);
+  border: 1px solid #a1a1aa;
+  background: #ffffff;
   padding: 7px 12px;
-  color: rgb(167, 243, 208);
+  color: rgb(39, 39, 42);
   font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .flow-card {
   position: relative;
   min-height: 280px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent),
-    rgba(24, 25, 23, 0.72);
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #ffffff;
   padding: 24px;
 }
 
@@ -193,31 +172,32 @@ pre {
   width: 130px;
   height: 130px;
   content: "";
-  border: 1px solid rgba(110, 231, 183, 0.16);
-  border-radius: 28px;
+  border: 1px solid #d4d4d8;
   transform: rotate(18deg);
 }
 
 .flow-index {
-  color: rgb(110, 231, 183);
+  color: rgb(77, 124, 15);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 13px;
+  font-weight: 700;
 }
 
 .flow-card h3 {
   margin-top: 48px;
   font-size: 22px;
-  color: white;
+  color: #18181b;
 }
 
 .flow-card code {
   display: block;
   margin-top: 18px;
   overflow: hidden;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid #27272a;
+  border-radius: 4px;
+  background: #111113;
   padding: 12px;
-  color: rgb(167, 243, 208);
+  color: rgb(217, 249, 157);
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
@@ -225,55 +205,107 @@ pre {
 
 .flow-card p {
   margin-top: 18px;
-  color: rgb(161, 161, 170);
+  color: rgb(82, 82, 91);
   line-height: 1.7;
+}
+
+.install-board {
+  border: 1px solid #d4d4d8;
+  background: #ffffff;
+}
+
+.install-step {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 18px;
+  border-bottom: 1px solid #e4e4e7;
+  padding: 20px;
+}
+
+.install-step:last-child {
+  border-bottom: 0;
+}
+
+.install-index {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #18181b;
+  background: #d9f99d;
+  color: #18181b;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.install-step h3 {
+  color: #18181b;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.install-step p {
+  margin-top: 6px;
+  color: rgb(82, 82, 91);
+  line-height: 1.6;
+}
+
+.install-step code {
+  display: block;
+  margin-top: 12px;
+  overflow-x: auto;
+  border: 1px solid #27272a;
+  border-radius: 4px;
+  background: #111113;
+  padding: 12px;
+  color: rgb(217, 249, 157);
+  white-space: nowrap;
+  font-size: 13px;
 }
 
 .tool-grid {
   display: grid;
   gap: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #d4d4d8;
   overflow: hidden;
 }
 
 .demo-frame {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 42%),
-    rgba(10, 12, 11, 0.92);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+  border: 1px solid #d4d4d8;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 12px 12px 0 #bae6fd;
 }
 
 .demo-frame video {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid #d4d4d8;
 }
 
 .tool-card {
-  background:
-    radial-gradient(circle at 92% 18%, rgba(110, 231, 183, 0.08), transparent 9rem),
-    #111311;
+  background: #ffffff;
   padding: 24px;
 }
 
 .tool-card code {
-  color: white;
+  color: #18181b;
   font-size: 15px;
+  font-weight: 700;
 }
 
 .tool-card p {
   margin-top: 14px;
-  color: rgb(161, 161, 170);
+  color: rgb(82, 82, 91);
   line-height: 1.7;
 }
 
 .faq-item {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #ffffff;
   padding: 0;
 }
 
@@ -281,7 +313,7 @@ pre {
   cursor: pointer;
   list-style: none;
   padding: 20px 22px;
-  color: white;
+  color: #18181b;
   font-size: 18px;
 }
 
@@ -292,7 +324,7 @@ pre {
 .faq-item summary::after {
   float: right;
   content: "+";
-  color: rgb(110, 231, 183);
+  color: rgb(77, 124, 15);
 }
 
 .faq-item[open] summary::after {
@@ -300,18 +332,27 @@ pre {
 }
 
 .faq-item p {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid #e4e4e7;
   padding: 0 22px 20px;
-  color: rgb(161, 161, 170);
+  color: rgb(82, 82, 91);
   line-height: 1.7;
 }
 
 @media (max-width: 767px) {
   .site-shell::before {
-    background-size: 42px 42px;
+    background-image: none;
   }
 
   .terminal-pane {
     min-height: auto;
+  }
+
+  .workbench-panel,
+  .demo-frame {
+    box-shadow: none;
+  }
+
+  .install-step {
+    grid-template-columns: 1fr;
   }
 }

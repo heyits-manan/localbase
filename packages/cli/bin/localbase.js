@@ -132,11 +132,17 @@ function initProject(args) {
 
   const relativeTarget = positionals[0] ?? "localbase";
   console.log(`Created Localbase project in ${targetDir}`);
+  console.log("Generated .env, .gitignore, docker-compose.yml, localbase.config.json, and README.md.");
   console.log("");
   console.log("Next steps:");
   console.log(`  cd ${relativeTarget}`);
   console.log("  localbase start");
   console.log("  localbase agent codex --install");
+  console.log("");
+  console.log("Then ask Codex:");
+  console.log(
+    "  Use the Localbase MCP server. Create a backend for an AI research assistant with auth-owned memories, documents, conversations, citations, and saved outputs. Add useful indexes, insert sample rows, then list the resources."
+  );
 }
 
 function envTemplate(options) {
@@ -273,6 +279,12 @@ localbase agent codex --install
 
 Then restart Codex from a shell where \`docker ps\` works.
 
+Try this first prompt:
+
+\`\`\`text
+Use the Localbase MCP server. Create a backend for an AI research assistant with auth-owned memories, documents, conversations, citations, and saved outputs. Add useful indexes, insert sample rows, then list the resources.
+\`\`\`
+
 ## Stop Localbase
 
 \`\`\`bash
@@ -397,6 +409,10 @@ function runCompose(args, options = {}) {
     }
   }
 
+  if ((result.status ?? 1) === 0 && options.successMessage) {
+    console.log(options.successMessage);
+  }
+
   process.exit(result.status ?? 1);
 }
 
@@ -488,8 +504,17 @@ function upsertEnvValue(projectDir, key, value) {
 
 async function startProject() {
   ensureProject();
+  const config = readConfig();
+  const apiUrl = config.apiUrl ?? "http://localhost:4000";
   await preparePostgresHostPort(process.cwd());
-  runCompose(["up", "-d"]);
+  console.log("Starting Localbase with Docker Compose...");
+  runCompose(["up", "-d"], {
+    successMessage: [
+      "Localbase runtime started.",
+      `API: ${apiUrl}`,
+      "Next: localbase agent codex --install"
+    ].join("\n")
+  });
 }
 
 function stopProject() {
@@ -566,7 +591,13 @@ function printCodexConfig(args = []) {
 function installCodexMcp(projectDir, apiUrl, adminToken) {
   const remove = runCommand("codex", ["mcp", "remove", "localbase"]);
   if (remove.error && remove.error.code === "ENOENT") {
-    exitWith("Codex CLI was not found. Install Codex, then run this command again.");
+    exitWith(
+      [
+        "Codex CLI was not found.",
+        "Install Codex or open a shell where the `codex` command is on PATH, then run:",
+        "  localbase agent codex --install"
+      ].join("\n")
+    );
   }
 
   const addArgs = codexAddArgs(projectDir, apiUrl, adminToken);
@@ -583,6 +614,11 @@ function installCodexMcp(projectDir, apiUrl, adminToken) {
   console.log("");
   console.log("Installed Codex MCP server for this Localbase project.");
   console.log("Restart Codex from a shell where `docker ps` works.");
+  console.log("");
+  console.log("Next prompt:");
+  console.log(
+    "Use the Localbase MCP server. Call get_backend_summary, then create an AI memory backend with auth-owned memories, documents, conversations, citations, and saved outputs. Add useful indexes, insert sample rows, then list the resources."
+  );
 }
 
 function doctorProject() {
@@ -641,6 +677,8 @@ function doctorProject() {
   });
 
   if (failures > 0) {
+    console.log("");
+    console.log("Fix the failed checks above, then rerun: localbase doctor");
     exitWith(`\nDoctor found ${failures} issue${failures === 1 ? "" : "s"}.`, 1);
   }
 

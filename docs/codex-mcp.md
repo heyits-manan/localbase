@@ -1,69 +1,69 @@
 # Localbase MCP With Codex
 
-Use this when you want a Codex agent to create Localbase database resources through MCP.
+Use this when you want Codex to create and operate a local Postgres-backed app backend through Localbase MCP tools.
 
-## 1. Start Localbase
-
-Run these from the Localbase repo root:
+## 1. Create And Start A Project
 
 ```bash
-docker compose up -d postgres
-pnpm db:migrate
-pnpm dev:api
+npm install -g @mrace07/localbase
+localbase init ai-memory
+cd ai-memory
+localbase start
 ```
 
-Keep the API running at `http://localhost:4000`.
+Generated projects keep the stable defaults:
+
+- API port: `4000`
+- Postgres image: `postgres:16`
+- API image: `mananchataut/localbase-api:latest`
+- MCP image: `mananchataut/localbase-mcp:latest`
 
 ## 2. Add The MCP Server To Codex
 
-Run this as one shell command. The `--silent mcp` arguments must stay on the same command line as `codex mcp add`.
+Run this from the generated project directory:
 
 ```bash
-codex mcp remove localbase
-codex mcp add localbase --env API_BASE_URL=http://localhost:4000 -- pnpm --dir /media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/localbase --silent mcp
+localbase agent codex --install
 codex mcp get localbase
 ```
 
-The final check should show `pnpm` with these arguments:
+The final check should point at the generated project:
 
 ```text
---dir /media/manan/27c2ac5b-0083-4cea-a027-e77fa8c01f85/Computer_Science/localbase --silent mcp
+command: localbase
+args: mcp --project /path/to/ai-memory
 ```
 
-If Codex prints `MCP client for localbase failed to start`, fix this command before testing prompts.
+If Codex prints `MCP client for localbase failed to start`, rerun `localbase doctor` inside the generated project and fix the failed checks before testing prompts.
 
-## 3. Test From Codex
+## 3. Flagship Prompt
 
 Ask Codex:
 
 ```text
-Use the localbase MCP server. Call get_backend_summary, then create a products resource with name text required, price integer required, and in_stock boolean default true. After that, list resources.
+Use the Localbase MCP server. Create a backend for an AI research assistant with auth-owned memories, documents, conversations, citations, and saved outputs. Add useful indexes, insert sample rows, then list the resources.
 ```
 
 Expected behavior:
 
 - Codex calls `get_backend_summary`.
-- Codex calls `create_resource`.
-- Localbase creates a real Postgres-backed resource and metadata.
-- Codex calls `list_resources` or `describe_resource` to verify it.
+- Codex creates resources through MCP, not by writing SQL manually.
+- Auth-owned resources use `ownedByUser: true`.
+- Codex signs up a test user before inserting auth-owned sample rows.
+- Codex calls `list_resources` or `describe_resource` to verify the schema.
 
-The agent should not write SQL manually for this flow.
+## Demo Schema
 
-For a broader smoke test after `products` exists, ask Codex:
+- `users`: created through email/password auth.
+- `memories`: auth-owned rows with `title`, `content`, `source`, `importance`, and `created_at`.
+- `documents`: auth-owned rows with `title`, `url`, `body`, and `status`.
+- `conversations`: auth-owned rows with `title` and `summary`.
+- `citations`: relationship to `documents` with `quote` and `note`.
+- `outputs`: auth-owned rows with `title`, `kind`, and `content`.
 
-```text
-Use the localbase MCP server. Create customers, categories, and orders resources for a small store backend. Then create an auth-owned saved_items resource, sign up a test user, insert one saved item with that auth token, and list resources.
-```
+Useful indexes include `memories.importance`, `memories.source`, `documents.status`, `conversations.title`, and `outputs.kind`.
 
-Expected resources after the smoke test:
-
-- `products`
-- `customers`
-- `categories`
-- `orders`
-- `saved_items`
-
-## Available Resource Tools
+## Available Tools
 
 - `get_backend_summary`
 - `list_resources`
@@ -74,6 +74,7 @@ Expected resources after the smoke test:
 - `update_field`
 - `delete_field`
 - `add_index`
+- `create_relationship`
 - `list_rows`
 - `insert_row`
 - `get_row`

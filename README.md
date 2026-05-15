@@ -2,9 +2,9 @@
 
 [demo.webm](https://github.com/user-attachments/assets/a16494e0-9075-449a-8ead-c95243689839)
 
-Localbase is a local-first backend runtime for AI coding agents. It runs a local Postgres-backed API, exposes generic CRUD and auth endpoints, and gives Codex an MCP server so agents can create resources, fields, indexes, relationships, rows, and user-owned data through structured tools.
+Localbase creates local Postgres backends your AI coding agent can build and operate. It runs a local API, exposes generic CRUD and email/password auth, and gives Codex an MCP server so agents can create resources, fields, indexes, relationships, rows, and auth-owned data through structured tools.
 
-Data stays in the generated project on the user's machine by default. Hosted or managed backends can be added later as an explicit opt-in mode, but the default path is local Docker, local API, and local MCP.
+AI agents need somewhere reliable to put application state. Localbase gives them a narrow backend tool surface instead of ad hoc SQL or one-off mock data, while keeping data in a generated project on your machine by default. Hosted or managed backends can be added later as an explicit opt-in mode, but the current path is local Docker, local API, and local MCP.
 
 ## Quick Start
 
@@ -19,21 +19,22 @@ Install the CLI:
 npm install -g @mrace07/localbase
 ```
 
-Create and start a local backend:
+Create, start, and connect a local backend:
 
 ```bash
 localbase init my-backend
 cd my-backend
 localbase start
 localbase agent codex --install
-localbase doctor
 ```
 
 Then restart Codex from a shell where `docker ps` works and ask:
 
 ```text
-Use the localbase MCP server. Call get_backend_summary, then list resources.
+Use the Localbase MCP server. Create a backend for an AI research assistant with auth-owned memories, documents, conversations, citations, and saved outputs. Add useful indexes, insert sample rows, then list the resources.
 ```
+
+Run `localbase doctor` if the API or MCP registration does not behave as expected.
 
 You can also scaffold without installing globally first:
 
@@ -75,6 +76,25 @@ Generated projects use Docker images from Docker Hub:
 
 Those tags are multi-platform Linux images, so Docker pulls the right variant on macOS, Windows, and Linux.
 
+## Flagship Demo: AI Memory Backend
+
+Use this canonical prompt after `localbase agent codex --install`:
+
+```text
+Use the Localbase MCP server. Create a backend for an AI research assistant with auth-owned memories, documents, conversations, citations, and saved outputs. Add useful indexes, insert sample rows, then list the resources.
+```
+
+The intended schema is:
+
+- `users`: created through existing email/password auth.
+- `memories`: auth-owned rows with `title`, `content`, `source`, `importance`, and `created_at`.
+- `documents`: auth-owned rows with `title`, `url`, `body`, and `status`.
+- `conversations`: auth-owned rows with `title` and `summary`.
+- `citations`: rows related to `documents` with `quote` and `note`.
+- `outputs`: auth-owned rows with `title`, `kind`, and `content`.
+
+Useful indexes include `memories.importance`, `memories.source`, `documents.status`, `conversations.title`, and `outputs.kind`.
+
 ## API Examples
 
 From a generated project, load the admin token:
@@ -89,56 +109,14 @@ Health check:
 curl http://localhost:4000/health
 ```
 
-Create a resource:
+Create an auth-owned `memories` resource:
 
 ```bash
 curl -X POST http://localhost:4000/resources \
   -H "Authorization: Bearer $API_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"companies","fields":[{"name":"name","type":"text","required":true},{"name":"website","type":"text"},{"name":"active","type":"boolean","defaultValue":true,"indexed":true}]}'
+  -d '{"name":"memories","ownedByUser":true,"fields":[{"name":"title","type":"text","required":true},{"name":"content","type":"text","required":true},{"name":"source","type":"text","indexed":true},{"name":"importance","type":"integer","defaultValue":1,"indexed":true}]}'
 ```
-
-Insert and list rows:
-
-```bash
-curl -X POST http://localhost:4000/resources/companies/rows \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Acme","website":"https://acme.com"}'
-
-curl http://localhost:4000/resources/companies/rows
-```
-
-Add fields and indexes:
-
-```bash
-curl -X POST http://localhost:4000/resources/companies/fields \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"rating","type":"integer","required":true,"defaultValue":0,"indexed":true}'
-
-curl -X POST http://localhost:4000/resources/companies/indexes \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"field":"active"}'
-```
-
-Create a relationship field:
-
-```bash
-curl -X POST http://localhost:4000/resources/companies/relationships \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"field":"parent_company_id","references":{"resource":"companies","field":"id","onDelete":"set null"}}'
-```
-
-Filter listed rows:
-
-```bash
-curl 'http://localhost:4000/resources/companies/rows?where[active]=true'
-curl 'http://localhost:4000/resources/companies/rows?where[name][contains]=acme&orderBy=created_at&orderDirection=desc&limit=25&offset=0'
-```
-
-Supported filter operators are `eq`, `ne`, `contains`, `gt`, `gte`, `lt`, `lte`, and `isNull`. The shorthand `where[field]=value` is equivalent to `where[field][eq]=value`.
 
 Create a user and save the bearer token:
 
@@ -151,26 +129,49 @@ TOKEN=$(
 )
 ```
 
-Create a user-owned resource:
+Insert and list rows:
 
 ```bash
-curl -X POST http://localhost:4000/resources \
-  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"todos","ownedByUser":true,"fields":[{"name":"title","type":"text","required":true},{"name":"done","type":"boolean","defaultValue":false}]}'
-```
-
-Insert and list owned rows with the user token:
-
-```bash
-curl -X POST http://localhost:4000/resources/todos/rows \
+curl -X POST http://localhost:4000/resources/memories/rows \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Ship auth","done":false}'
+  -d '{"title":"Research preference","content":"Prefer primary sources and quote exact URLs.","source":"user","importance":5}'
 
-curl http://localhost:4000/resources/todos/rows \
+curl http://localhost:4000/resources/memories/rows \
   -H "Authorization: Bearer $TOKEN"
 ```
+
+Add fields and indexes:
+
+```bash
+curl -X POST http://localhost:4000/resources/memories/fields \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"archived","type":"boolean","defaultValue":false,"indexed":true}'
+
+curl -X POST http://localhost:4000/resources/memories/indexes \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"field":"source"}'
+```
+
+Create a relationship field:
+
+```bash
+curl -X POST http://localhost:4000/resources/citations/relationships \
+  -H "Authorization: Bearer $API_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"field":"document_id","references":{"resource":"documents","field":"id","onDelete":"cascade"}}'
+```
+
+Filter listed rows:
+
+```bash
+curl 'http://localhost:4000/resources/memories/rows?where[source]=user'
+curl 'http://localhost:4000/resources/memories/rows?where[title][contains]=research&orderBy=created_at&orderDirection=desc&limit=25&offset=0'
+```
+
+Supported filter operators are `eq`, `ne`, `contains`, `gt`, `gte`, `lt`, `lte`, and `isNull`. The shorthand `where[field]=value` is equivalent to `where[field][eq]=value`.
 
 Owned resources automatically add `user_id`, reject client-supplied `user_id`, and only return rows for the authenticated user.
 
@@ -206,23 +207,41 @@ await localbase.auth.signUp("ada@example.com", "password123");
 await localbase.auth.getUser();
 
 await localbase.resources.create({
-  name: "todos",
+  name: "memories",
   ownedByUser: true,
   fields: [
     { name: "title", type: "text", required: true },
-    { name: "done", type: "boolean", defaultValue: false }
+    { name: "content", type: "text", required: true },
+    { name: "source", type: "text", indexed: true },
+    { name: "importance", type: "integer", defaultValue: 1, indexed: true }
   ]
 });
-await localbase.resources.addField("todos", { name: "priority", type: "integer", defaultValue: 0 });
-await localbase.resources.addIndex("todos", "priority");
-await localbase.resources.rows("todos").insert({ title: "Ship auth" });
-await localbase.resources.rows("todos").list({
-  where: { priority: { gte: 0 }, title: { contains: "Ship" } },
+await localbase.resources.rows("memories").insert({
+  title: "Research preference",
+  content: "Prefer primary sources and quote exact URLs.",
+  source: "user",
+  importance: 5
+});
+await localbase.resources.rows("memories").list({
+  where: { importance: { gte: 3 }, title: { contains: "Research" } },
   limit: 25,
   orderBy: "created_at",
   orderDirection: "desc"
 });
 ```
+
+See `examples/ai-memory-app` for a minimal SDK flow that signs in, inserts a memory, lists memories, and writes a saved output.
+
+## Known Limits
+
+- Localbase is currently a local development runtime.
+- It is not yet a hosted production backend.
+- Auth is email/password only.
+- There is no dashboard-first workflow yet; the primary loop is CLI plus MCP.
+
+## Beta Feedback Wanted
+
+Try one full Codex flow: install Localbase, start it, register MCP, ask for the flagship AI memory backend, then read and write data from app code. The most useful feedback is install failures, confusing agent prompts, missing backend primitives, time to first resource, and time to first app write.
 
 ## Repository Development
 

@@ -54,7 +54,7 @@ const filterValueSchema = z.union([
   })
 ]);
 
-function buildRowListQuery(input: {
+export function buildRowListQuery(input: {
   where?: Record<string, z.infer<typeof filterValueSchema>>;
   limit?: number;
   offset?: number;

@@ -154,6 +154,21 @@ pre {
   justify-content: flex-end;
 }
 
+.prompt-card {
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  background: #09090b;
+  padding: 20px;
+}
+
+.prompt-card p {
+  margin: 0;
+  color: rgb(244, 244, 245);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
 .section-kicker {
   display: inline-flex;
   width: fit-content;
@@ -216,6 +231,32 @@ pre {
 
 .flow-card p {
   margin-top: 18px;
+  color: rgb(161, 161, 170);
+  line-height: 1.7;
+}
+
+.demo-resource-grid {
+  display: grid;
+  gap: 3px;
+  overflow: hidden;
+  border: 1px solid #27272a;
+  border-radius: 4px;
+  background: #27272a;
+}
+
+.demo-resource {
+  background: #09090b;
+  padding: 22px;
+}
+
+.demo-resource code {
+  color: rgb(217, 249, 157);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.demo-resource p {
+  margin-top: 12px;
   color: rgb(161, 161, 170);
   line-height: 1.7;
 }
@@ -312,6 +353,23 @@ pre {
   line-height: 1.7;
 }
 
+.beta-panel {
+  display: grid;
+  gap: 3px;
+  overflow: hidden;
+  border: 1px solid #27272a;
+  border-radius: 4px;
+  background: #27272a;
+}
+
+.beta-panel p {
+  margin: 0;
+  background: #09090b;
+  padding: 18px 20px;
+  color: rgb(161, 161, 170);
+  line-height: 1.7;
+}
+
 .faq-item {
   border: 1px solid #27272a;
   border-radius: 4px;
@@ -365,5 +423,17 @@ pre {
 
   .install-step {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 768px) {
+  .demo-resource-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .demo-resource-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }

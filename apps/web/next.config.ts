@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  typedRoutes: false
+  typedRoutes: false,
+  turbopack: {
+    rules: {
+      "*.webm": {
+        type: "asset"
+      }
+    }
+  }
 };
 
 export default nextConfig;

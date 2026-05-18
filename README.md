@@ -239,10 +239,6 @@ See `examples/ai-memory-app` for a minimal SDK flow that signs in, inserts a mem
 - Auth is email/password only.
 - There is no dashboard-first workflow yet; the primary loop is CLI plus MCP.
 
-## Beta Feedback Wanted
-
-Try one full Codex flow: install Localbase, start it, register MCP, ask for the flagship AI memory backend, then read and write data from app code. The most useful feedback is install failures, confusing agent prompts, missing backend primitives, time to first resource, and time to first app write.
-
 ## Repository Development
 
 Requirements for working on this repo:

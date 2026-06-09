@@ -35,39 +35,4 @@ Expected behavior:
 
 ## SDK Smoke Check
 
-App code can use the SDK after MCP creates the schema:
-
-```ts
-import { createLocalbaseClient } from "@localbase/sdk";
-
-const localbase = createLocalbaseClient({
-  baseUrl: "http://localhost:4000",
-  adminToken: process.env.API_ADMIN_TOKEN
-});
-
-await localbase.auth.signUp("ada@example.com", "password123");
-
-await localbase.resources.rows("memories").insert({
-  title: "Research preference",
-  content: "Prefer primary sources and quote exact URLs.",
-  source: "user",
-  importance: 5
-});
-
-const memories = await localbase.resources.rows("memories").list({
-  where: { importance: { gte: 3 } },
-  orderBy: "created_at",
-  orderDirection: "desc",
-  limit: 10
-});
-
-await localbase.resources.rows("outputs").insert({
-  title: "Source policy",
-  kind: "note",
-  content: "Use primary sources for product claims."
-});
-
-console.log(memories);
-```
-
-See `examples/ai-memory-app` for a fuller minimal example.
+The SDK has been removed from the monorepo. Interact with the backend directly via the REST API or the MCP tools.

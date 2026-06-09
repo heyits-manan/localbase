@@ -69,7 +69,7 @@ const toolGroups = [
 const localFirstPoints = [
   ["Bounded agent access", "Codex gets typed backend operations instead of broad shell access or improvised SQL."],
   ["Inspectable state", "Resources, rows, users, indexes, and relationships live in a local Postgres-backed runtime."],
-  ["App-ready surface", "Your frontend can use HTTP or the TypeScript SDK immediately after the agent creates the backend."],
+  ["App-ready surface", "Your frontend can use the REST API directly via HTTP immediately after the agent creates the backend."],
   ["No hosted account", "The default path is Docker, localhost, and a project-scoped MCP server."]
 ];
 
@@ -197,7 +197,7 @@ export default function Home() {
 
       <section className="proof-band" aria-label="Product proof">
         <p>Agent creates backend schema</p>
-        <p>App writes through SDK</p>
+        <p>App writes through API</p>
         <p>Data stays local by default</p>
       </section>
 

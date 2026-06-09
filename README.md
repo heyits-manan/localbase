@@ -62,6 +62,11 @@ localbase doctor
 ```
 
 - `init`: scaffold a local-first project with `.env`, `.gitignore`, `docker-compose.yml`, `localbase.config.json`, and a project README.
+  - `--with-web`: include the Next.js web UI service in the generated project.
+  - `--local-images`: use locally built Docker images (`localbase-api`, `localbase-mcp`) instead of pulling from Docker Hub.
+  - `--api-port`: override the default API port (4000).
+  - `--web-port`: override the default web port (3000).
+  - `--image-tag`: use a specific Docker image tag instead of `latest`.
 - `start`: start the generated Docker Compose runtime.
 - `stop`: stop the generated Docker Compose runtime.
 - `status`: show Compose service status.
@@ -193,45 +198,6 @@ args: mcp --project /path/to/your/project
 
 Agents can call `get_backend_summary` first to verify the API is reachable. Available tools include `list_resources`, `describe_resource`, `create_resource`, `delete_resource`, `add_field`, `update_field`, `delete_field`, `add_index`, `create_relationship`, `list_rows`, `insert_row`, `get_row`, `update_row`, `delete_row`, `describe_auth_config`, `sign_up`, `sign_in`, `get_current_user`, and `sign_out`.
 
-## SDK Example
-
-```ts
-import { createLocalbaseClient } from "@localbase/sdk";
-
-const localbase = createLocalbaseClient({
-  baseUrl: "http://localhost:4000",
-  adminToken: process.env.API_ADMIN_TOKEN
-});
-
-await localbase.auth.signUp("ada@example.com", "password123");
-await localbase.auth.getUser();
-
-await localbase.resources.create({
-  name: "memories",
-  ownedByUser: true,
-  fields: [
-    { name: "title", type: "text", required: true },
-    { name: "content", type: "text", required: true },
-    { name: "source", type: "text", indexed: true },
-    { name: "importance", type: "integer", defaultValue: 1, indexed: true }
-  ]
-});
-await localbase.resources.rows("memories").insert({
-  title: "Research preference",
-  content: "Prefer primary sources and quote exact URLs.",
-  source: "user",
-  importance: 5
-});
-await localbase.resources.rows("memories").list({
-  where: { importance: { gte: 3 }, title: { contains: "Research" } },
-  limit: 25,
-  orderBy: "created_at",
-  orderDirection: "desc"
-});
-```
-
-See `examples/ai-memory-app` for a minimal SDK flow that signs in, inserts a memory, lists memories, and writes a saved output.
-
 ## Known Limits
 
 - Localbase is currently a local development runtime.
@@ -241,7 +207,7 @@ See `examples/ai-memory-app` for a minimal SDK flow that signs in, inserts a mem
 
 ## Beta Feedback Wanted
 
-Try one full Codex flow: install Localbase, start it, register MCP, ask for the flagship AI memory backend, then read and write data from app code. The most useful feedback is install failures, confusing agent prompts, missing backend primitives, time to first resource, and time to first app write.
+Try one full Codex flow: install Localbase, start it, register MCP, ask for the flagship AI memory backend, then verify the schema and data through the API or MCP tools. The most useful feedback is install failures, confusing agent prompts, missing backend primitives, time to first resource, and time to first app write.
 
 ## Repository Development
 
@@ -271,6 +237,7 @@ Development commands:
 
 - `pnpm dev:api`: start the Express API on port `4000`.
 - `pnpm dev:mcp`: start the MCP stdio server.
+- `pnpm dev:web`: start the Next.js web app on port `3000`.
 - `pnpm --silent mcp`: start the quiet repo-local MCP stdio server.
 - `pnpm db:generate`: generate Drizzle migrations for internal metadata tables.
 - `pnpm db:migrate`: apply Drizzle migrations.

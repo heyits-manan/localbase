@@ -66,4 +66,4 @@ Pass criteria:
 - `localbase doctor` reports no issues.
 - Codex can call `get_backend_summary`.
 - The flagship prompt creates and lists the expected resources.
-- A small app or SDK script can sign in, insert a memory, list memories, and create a saved output.
+- A small app can sign in via the REST API, insert a memory, list memories, and create a saved output.

@@ -1,3 +1,18 @@
+/**
+ * Schema Service - Dynamic Database Schema Management
+ * 
+ * This is the core of Localbase's "metamodel" architecture. Instead of using
+ * static database schemas, this service creates, modifies, and manages dynamic
+ * PostgreSQL tables at runtime. All schema metadata is stored in "forge" tables
+ * (forge_projects, forge_tables, forge_columns) which act as a catalog of user-created resources.
+ * 
+ * Key design decisions:
+ * - All SQL is generated deterministically by TypeScript code (never by AI)
+ * - SQL identifiers are strictly validated against injection via regex
+ * - All DDL operations use raw pg pool transactions (BEGIN/COMMIT/ROLLBACK)
+ * - User values are parameterized; only identifiers are string-concatenated
+ */
+
 import type {
   AddResourceFieldInput,
   AddResourceIndexInput,
@@ -21,9 +36,13 @@ import { db, pool } from "../db/client.js";
 import { ensureDefaultProject, forgeColumns, forgeTables } from "../db/schema/forge.js";
 import { assertSafeColumnName, assertSafeTableName, quoteIdentifier } from "../utils/sql-identifiers.js";
 
+// System tables that cannot be exposed as user-managed resources
 const reservedPrefixes = ["forge_", "auth_", "storage_"];
+
+// System columns that cannot be user-defined (managed automatically by the runtime)
 const reservedResourceFieldNames = new Set(["id", "user_id", "created_at", "updated_at"]);
 
+// Maps Localbase field types to PostgreSQL column types
 const fieldTypeSql: Record<FieldType, string> = {
   text: "TEXT",
   integer: "INTEGER",
@@ -33,6 +52,8 @@ const fieldTypeSql: Record<FieldType, string> = {
   jsonb: "JSONB"
 };
 
+// Internal representation of a field before it's written to the database
+// Includes relationship references which are stored as foreign key constraints
 type StorageFieldInput = {
   name: string;
   type: FieldType;
@@ -47,6 +68,7 @@ type StorageFieldInput = {
   };
 };
 
+// Custom error class that carries HTTP status codes for the Express error handler
 class ServiceError extends Error {
   statusCode: number;
 
@@ -56,6 +78,7 @@ class ServiceError extends Error {
   }
 }
 
+// Converts a database row from forge_columns into a LocalbaseField object
 function toLocalbaseField(row: typeof forgeColumns.$inferSelect): LocalbaseField {
   return {
     id: row.id,
@@ -78,6 +101,7 @@ function toLocalbaseField(row: typeof forgeColumns.$inferSelect): LocalbaseField
   };
 }
 
+// Converts a database row from forge_tables into a LocalbaseResource object
 function toLocalbaseResource(row: typeof forgeTables.$inferSelect, fields?: LocalbaseField[]): LocalbaseResource {
   return {
     id: row.id,
@@ -89,6 +113,7 @@ function toLocalbaseResource(row: typeof forgeTables.$inferSelect, fields?: Loca
   };
 }
 
+// Validates a resource name against SQL injection and reserved prefixes
 function validateResourceName(resourceName: string): string {
   const safeName = assertSafeTableName(resourceName);
   if (reservedPrefixes.some((prefix) => safeName.startsWith(prefix))) {
@@ -98,6 +123,7 @@ function validateResourceName(resourceName: string): string {
   return safeName;
 }
 
+// Validates a field name against reserved names and SQL injection
 function validateResourceFieldName(fieldName: string): string {
   const safeName = assertSafeColumnName(fieldName);
   if (reservedResourceFieldNames.has(safeName)) {
@@ -107,6 +133,7 @@ function validateResourceFieldName(fieldName: string): string {
   return safeName;
 }
 
+// Validates all field names in a resource, checking for duplicates and reserved names
 function validateResourceFields(fields: StorageFieldInput[]): StorageFieldInput[] {
   const seen = new Set<string>();
 
@@ -121,6 +148,8 @@ function validateResourceFields(fields: StorageFieldInput[]): StorageFieldInput[
   });
 }
 
+// Validates a relationship reference to ensure the target resource and field exist
+// and that the target field is a UUID type (required for foreign key constraints)
 async function validateReference(reference: NonNullable<StorageFieldInput["references"]>) {
   const resource = assertSafeTableName(reference.resource);
   const field = assertSafeColumnName(reference.field ?? "id");
@@ -145,6 +174,7 @@ async function validateReference(reference: NonNullable<StorageFieldInput["refer
   return { resource, field, onDelete };
 }
 
+// Validates all relationship references in a set of fields
 async function validateReferences(fields: StorageFieldInput[]): Promise<StorageFieldInput[]> {
   const validated: StorageFieldInput[] = [];
   for (const field of fields) {
@@ -164,6 +194,8 @@ async function validateReferences(fields: StorageFieldInput[]): Promise<StorageF
   return validated;
 }
 
+// Converts a default value to a valid SQL literal string
+// Handles escaping of single quotes and type-specific formatting
 function toSqlLiteral(type: FieldType, value: string | number | boolean | null): string {
   if (value === null) {
     return "NULL";
@@ -196,6 +228,8 @@ function toSqlLiteral(type: FieldType, value: string | number | boolean | null):
   return `'${escaped}'`;
 }
 
+// Builds the SQL column definition for a single field
+// Includes: type, NOT NULL, REFERENCES, UNIQUE, DEFAULT
 function toFieldSql(field: StorageFieldInput): string {
   const parts = [quoteIdentifier(field.name), fieldTypeSql[field.type]];
   if (field.required === true) {
@@ -228,6 +262,7 @@ function toFieldSql(field: StorageFieldInput): string {
   return parts.join(" ");
 }
 
+// Creates a database index on a field for faster querying
 async function createFieldIndex(
   client: Pick<typeof pool, "query">,
   resourceName: string,
@@ -239,6 +274,7 @@ async function createFieldIndex(
   );
 }
 
+// Removes a database index from a field
 async function dropFieldIndex(
   client: Pick<typeof pool, "query">,
   resourceName: string,
@@ -248,6 +284,8 @@ async function dropFieldIndex(
   await client.query(`DROP INDEX IF EXISTS ${quoteIdentifier(indexName)}`);
 }
 
+// Prepares the complete list of fields for a resource
+// Automatically adds user_id field for auth-owned resources
 function getStorageFields(input: CreateResourceInput): StorageFieldInput[] {
   const userFields = validateResourceFields(input.fields);
   return [
@@ -265,11 +303,13 @@ function getStorageFields(input: CreateResourceInput): StorageFieldInput[] {
   ];
 }
 
+// Lists all resources defined in the forge metadata
 export async function listResources(): Promise<LocalbaseResource[]> {
   const rows = await db.select().from(forgeTables);
   return rows.map((row) => toLocalbaseResource(row));
 }
 
+// Returns detailed information about a resource including its fields
 export async function describeResource(resourceName: string): Promise<LocalbaseResource> {
   const safeName = assertSafeTableName(resourceName);
   const resource = await db.select().from(forgeTables).where(eq(forgeTables.tableName, safeName)).limit(1);
@@ -285,6 +325,12 @@ export async function describeResource(resourceName: string): Promise<LocalbaseR
   return toLocalbaseResource(resource[0], fields.map((field) => toLocalbaseField(field)));
 }
 
+// Creates a new dynamic resource (table) in PostgreSQL
+// This is a complex transaction that:
+// 1. Validates the resource name and fields
+// 2. Executes CREATE TABLE with all field definitions
+// 3. Creates indexes for performance
+// 4. Stores metadata in forge_tables and forge_columns
 export async function createResource(input: CreateResourceInput): Promise<LocalbaseResource> {
   const parsed = createResourceInputSchema.parse(input);
   const resourceName = validateResourceName(parsed.name);
@@ -368,6 +414,7 @@ export async function createResource(input: CreateResourceInput): Promise<Localb
   }
 }
 
+// Permanently deletes a resource and all its metadata
 export async function deleteResource(resourceName: string): Promise<{ ok: true }> {
   const safeResourceName = assertSafeTableName(resourceName);
   const resource = await describeResource(safeResourceName);
@@ -388,6 +435,7 @@ export async function deleteResource(resourceName: string): Promise<{ ok: true }
   }
 }
 
+// Adds a new field to an existing resource
 export async function addResourceField(resourceName: string, input: AddResourceFieldInput): Promise<LocalbaseResource> {
   const safeResourceName = assertSafeTableName(resourceName);
   const parsed = addResourceFieldInputSchema.parse(input);
@@ -453,6 +501,7 @@ export async function addResourceField(resourceName: string, input: AddResourceF
   }
 }
 
+// Adds a database index to an existing field for faster querying
 export async function addResourceIndex(resourceName: string, input: AddResourceIndexInput): Promise<LocalbaseResource> {
   const safeResourceName = assertSafeTableName(resourceName);
   const parsed = addResourceIndexInputSchema.parse(input);
@@ -491,6 +540,8 @@ export async function addResourceIndex(resourceName: string, input: AddResourceI
   }
 }
 
+// Creates a relationship (foreign key) between two resources
+// This is a special case of addResourceField that always uses UUID type
 export async function createResourceRelationship(
   resourceName: string,
   input: CreateResourceRelationshipInput
@@ -506,6 +557,8 @@ export async function createResourceRelationship(
   });
 }
 
+// Updates field metadata (name, required, default value, indexed)
+// Handles complex ALTER TABLE operations including renaming columns
 export async function updateResourceField(
   resourceName: string,
   fieldName: string,
@@ -603,6 +656,7 @@ export async function updateResourceField(
   }
 }
 
+// Removes a field from a resource and deletes its metadata
 export async function deleteResourceField(resourceName: string, fieldName: string): Promise<LocalbaseResource> {
   const safeResourceName = assertSafeTableName(resourceName);
   const safeFieldName = validateResourceFieldName(fieldName);
@@ -633,6 +687,7 @@ export async function deleteResourceField(resourceName: string, fieldName: strin
   }
 }
 
+// Returns the fields for a resource without the full resource metadata
 export async function getRegisteredFields(resourceName: string): Promise<LocalbaseField[]> {
   const safeName = assertSafeTableName(resourceName);
   const rows = await db

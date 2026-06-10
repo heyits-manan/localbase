@@ -1,6 +1,24 @@
+/**
+ * MCP Authentication Tools
+ *
+ * Registers authentication-related tools on the MCP server.
+ * Provides tools for: describing auth configuration, signing up, signing in,
+ * getting the current user, and signing out.
+ * All tools communicate with the Localbase API via HTTP requests.
+ */
+
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+/**
+ * Makes an HTTP request to the Localbase API and formats the response for MCP.
+ * @param apiBaseUrl - The base URL for the Localbase API.
+ * @param path - The API endpoint path.
+ * @param authToken - Optional bearer token for authenticated requests.
+ * @param init - Additional fetch options.
+ * @returns Formatted MCP tool response content.
+ * @throws Error if the response status is not OK.
+ */
 async function request(apiBaseUrl: string, path: string, authToken?: string, init?: RequestInit) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
@@ -26,7 +44,13 @@ async function request(apiBaseUrl: string, path: string, authToken?: string, ini
   };
 }
 
+/**
+ * Registers all authentication tools on the MCP server.
+ * @param server - The MCP server instance.
+ * @param apiBaseUrl - The base URL for the Localbase API.
+ */
 export function registerAuthTools(server: McpServer, apiBaseUrl: string): void {
+  // Tool to describe the authentication configuration
   server.registerTool(
     "describe_auth_config",
     {
@@ -65,6 +89,7 @@ export function registerAuthTools(server: McpServer, apiBaseUrl: string): void {
     })
   );
 
+  // Tool to sign up a new user
   server.registerTool(
     "sign_up",
     {
@@ -81,6 +106,7 @@ export function registerAuthTools(server: McpServer, apiBaseUrl: string): void {
       })
   );
 
+  // Tool to sign in an existing user
   server.registerTool(
     "sign_in",
     {
@@ -97,6 +123,7 @@ export function registerAuthTools(server: McpServer, apiBaseUrl: string): void {
       })
   );
 
+  // Tool to get the current user for a given token
   server.registerTool(
     "get_current_user",
     {
@@ -108,6 +135,7 @@ export function registerAuthTools(server: McpServer, apiBaseUrl: string): void {
     async ({ authToken }) => request(apiBaseUrl, "/auth/me", authToken)
   );
 
+  // Tool to sign out a user
   server.registerTool(
     "sign_out",
     {

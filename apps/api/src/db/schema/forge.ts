@@ -1,13 +1,23 @@
+/**
+ * Database Schema Definitions
+ *
+ * Defines the Drizzle ORM schema for the Localbase database.
+ * Includes tables for projects, tables (resources), columns (fields), users, and sessions.
+ * Also provides a helper function to ensure a default project exists.
+ */
+
 import { asc, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { boolean, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
+/** Projects table - top-level grouping for resources. */
 export const forgeProjects = pgTable("forge_projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 });
 
+/** Tables (resources) table - defines user-created resources with ownership. */
 export const forgeTables = pgTable("forge_tables", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").references(() => forgeProjects.id),
@@ -16,6 +26,7 @@ export const forgeTables = pgTable("forge_tables", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 });
 
+/** Columns (fields) table - defines fields on resources with types and constraints. */
 export const forgeColumns = pgTable("forge_columns", {
   id: uuid("id").primaryKey().defaultRandom(),
   tableId: uuid("table_id").references(() => forgeTables.id),
@@ -31,6 +42,7 @@ export const forgeColumns = pgTable("forge_columns", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 });
 
+/** Users table - stores email/password credentials for authentication. */
 export const authUsers = pgTable(
   "auth_users",
   {
@@ -40,10 +52,12 @@ export const authUsers = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
   },
   (table) => ({
+    // Ensure email uniqueness for authentication
     emailUnique: uniqueIndex("auth_users_email_unique").on(table.email)
   })
 );
 
+/** Sessions table - stores bearer token hashes for active user sessions. */
 export const authSessions = pgTable(
   "auth_sessions",
   {
@@ -56,12 +70,20 @@ export const authSessions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
   },
   (table) => ({
+    // Ensure token hash uniqueness for session lookup
     tokenHashUnique: uniqueIndex("auth_sessions_token_hash_unique").on(table.tokenHash)
   })
 );
 
+/** Type alias for a project row as selected from the database. */
 export type ForgeProjectRow = typeof forgeProjects.$inferSelect;
 
+/**
+ * Ensures that at least one project exists in the database.
+ * Returns the first project found, or creates a "Default Project" if none exist.
+ * @param database - The Drizzle database instance.
+ * @returns The existing or newly created project row.
+ */
 export async function ensureDefaultProject(
   database: NodePgDatabase<typeof import("./forge.js")>
 ): Promise<ForgeProjectRow> {

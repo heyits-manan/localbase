@@ -1,3 +1,12 @@
+/**
+ * MCP Resource Tools
+ *
+ * Registers resource management tools on the MCP server.
+ * Provides tools for: listing, describing, creating, and deleting resources,
+ * as well as managing fields, indexes, and relationships.
+ * Also includes full CRUD operations for resource rows with support for filtering and pagination.
+ */
+
 import type {
   AddResourceFieldInput,
   CreateResourceInput,
@@ -13,6 +22,15 @@ import {
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+/**
+ * Makes an HTTP request to the Localbase API and formats the response for MCP.
+ * @param apiBaseUrl - The base URL for the Localbase API.
+ * @param path - The API endpoint path.
+ * @param authToken - Optional bearer token for authenticated requests.
+ * @param init - Additional fetch options.
+ * @returns Formatted MCP tool response content.
+ * @throws Error if the response status is not OK.
+ */
 async function request(apiBaseUrl: string, path: string, authToken?: string, init?: RequestInit) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
@@ -38,6 +56,10 @@ async function request(apiBaseUrl: string, path: string, authToken?: string, ini
   };
 }
 
+/**
+ * Zod schema for a filter value in row list queries.
+ * Supports direct values or operator objects for advanced filtering.
+ */
 const filterValueSchema = z.union([
   z.string(),
   z.number(),
@@ -54,6 +76,12 @@ const filterValueSchema = z.union([
   })
 ]);
 
+/**
+ * Builds a URL query string from row list filter and pagination parameters.
+ * Supports nested object filters (e.g., { where: { field: { eq: value } } }).
+ * @param input - The filter and pagination parameters.
+ * @returns The constructed query string, or empty string if no parameters.
+ */
 export function buildRowListQuery(input: {
   where?: Record<string, z.infer<typeof filterValueSchema>>;
   limit?: number;
@@ -64,12 +92,14 @@ export function buildRowListQuery(input: {
   const params = new URLSearchParams();
   for (const [field, value] of Object.entries(input.where ?? {})) {
     if (typeof value === "object" && value !== null) {
+      // Handle operator object syntax: { field: { operator: value } }
       for (const [operator, operatorValue] of Object.entries(value)) {
         if (operatorValue !== undefined) {
           params.set(`where[${field}][${operator}]`, String(operatorValue));
         }
       }
     } else {
+      // Handle direct value syntax: { field: value } implies equality
       params.set(`where[${field}]`, String(value));
     }
   }
@@ -89,7 +119,14 @@ export function buildRowListQuery(input: {
   return query ? `?${query}` : "";
 }
 
+/**
+ * Registers all resource management tools on the MCP server.
+ * @param server - The MCP server instance.
+ * @param apiBaseUrl - The base URL for the Localbase API.
+ * @param adminToken - Optional bearer token for admin operations.
+ */
 export function registerResourceTools(server: McpServer, apiBaseUrl: string, adminToken?: string): void {
+  // List all known resources
   server.registerTool(
     "list_resources",
     {
@@ -99,6 +136,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
     async () => request(apiBaseUrl, "/resources")
   );
 
+  // Describe a specific resource
   server.registerTool(
     "describe_resource",
     {
@@ -110,6 +148,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
     async ({ name }) => request(apiBaseUrl, `/resources/${encodeURIComponent(name)}`)
   );
 
+  // Create a new resource (admin only)
   server.registerTool(
     "create_resource",
     {
@@ -125,6 +164,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // Delete a resource (admin only)
   server.registerTool(
     "delete_resource",
     {
@@ -139,6 +179,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // Add a field to a resource (admin only)
   server.registerTool(
     "add_field",
     {
@@ -155,6 +196,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // Update a field on a resource (admin only)
   server.registerTool(
     "update_field",
     {
@@ -172,6 +214,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // Delete a field from a resource (admin only)
   server.registerTool(
     "delete_field",
     {
@@ -187,6 +230,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // Add an index to a resource field (admin only)
   server.registerTool(
     "add_index",
     {
@@ -203,6 +247,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // Create a relationship between resources (admin only)
   server.registerTool(
     "create_relationship",
     {
@@ -219,6 +264,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // List rows for a resource with optional filtering and pagination
   server.registerTool(
     "list_rows",
     {
@@ -247,6 +293,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       )
   );
 
+  // Insert a new row into a resource
   server.registerTool(
     "insert_row",
     {
@@ -264,6 +311,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // Get a single row by ID
   server.registerTool(
     "get_row",
     {
@@ -278,6 +326,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       request(apiBaseUrl, `/resources/${encodeURIComponent(resource)}/rows/${encodeURIComponent(id)}`, authToken)
   );
 
+  // Update a single row by ID
   server.registerTool(
     "update_row",
     {
@@ -296,6 +345,7 @@ export function registerResourceTools(server: McpServer, apiBaseUrl: string, adm
       })
   );
 
+  // Delete a single row by ID
   server.registerTool(
     "delete_row",
     {

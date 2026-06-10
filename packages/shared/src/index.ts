@@ -1,3 +1,10 @@
+/**
+ * Shared Package Exports
+ *
+ * Re-exports all types and schemas from the shared package for easy consumption.
+ * This is the main entry point for consumers of the @localbase/shared package.
+ */
+
 export type {
   AddResourceFieldInput,
   AddResourceIndexInput,
